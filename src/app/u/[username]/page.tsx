@@ -1,13 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Dream } from "@/types/dreams";
 
-type Props = {
-  params: { username: string };
-};
-
-export default async function UserPublicPage({ params }: Props) {
+export default async function UserPublicPage({ params }: any) {
   const supabase = createSupabaseServerClient();
 
   const { data: profile } = await supabase

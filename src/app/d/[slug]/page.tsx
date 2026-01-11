@@ -3,11 +3,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DreamContent } from "@/components/dreams/DreamInterpretation";
 
-type Props = {
-  params: { slug: string };
-};
-
-export default async function DreamDetailPage({ params }: Props) {
+export default async function DreamDetailPage({ params }: any) {
   const supabase = createSupabaseServerClient();
 
   const {

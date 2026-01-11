@@ -175,7 +175,9 @@ export async function POST(req: NextRequest) {
       typeof assistantContent === "string"
         ? assistantContent
         : Array.isArray(assistantContent)
-        ? assistantContent.map((c) => ("text" in c ? c.text : "")).join("\n")
+        ? (assistantContent as any[])
+            .map((c) => ("text" in c ? c.text : ""))
+            .join("\n")
         : "";
 
     if (!assistantText) {

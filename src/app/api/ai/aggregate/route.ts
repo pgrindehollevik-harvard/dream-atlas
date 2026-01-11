@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
       typeof content === "string"
         ? content
         : Array.isArray(content)
-        ? content.map((c) => ("text" in c ? c.text : "")).join("\n")
+        ? (content as any[])
+            .map((c) => ("text" in c ? c.text : ""))
+            .join("\n")
         : "";
 
     if (!summaryText) {
