@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { DreamContent } from "@/components/dreams/DreamInterpretation";
 
 type Props = {
   params: { slug: string };
@@ -80,51 +81,31 @@ export default async function DreamDetailPage({ params }: Props) {
                 {dream.title}
               </h1>
             </div>
-            <div className="flex flex-col items-end gap-1 text-[11px] text-slate-400">
-              {dream.dream_date && (
-                <span>{dream.dream_date}</span>
-              )}
-              <span
-                className={
-                  dream.visibility === "public"
-                    ? "rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300"
-                    : dream.visibility === "unlisted"
-                    ? "rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-300"
-                    : "rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] text-slate-300"
-                }
-              >
-                {dream.visibility}
-              </span>
-            </div>
+            <span
+              className={
+                dream.visibility === "public"
+                  ? "rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300"
+                  : dream.visibility === "unlisted"
+                  ? "rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-300"
+                  : "rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] text-slate-300"
+              }
+            >
+              {dream.visibility}
+            </span>
           </div>
-          {dream.description && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
-              {dream.description}
-            </p>
-          )}
-          <div className="mt-4 space-y-3 rounded-2xl border border-dashed border-slate-700 bg-night-900/70 p-4 text-xs text-slate-300">
-            <p className="text-[11px] font-medium text-slate-200">
-              AI interpretation
-            </p>
-            {summary ? (
-              <div className="space-y-2 text-xs leading-relaxed text-slate-200">
-                <div
-                  className="[&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-100 [&_h4]:text-[11px] [&_h4]:font-semibold [&_h4]:text-slate-200 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
-                  // summary is generated HTML from our own backend prompt
-                  dangerouslySetInnerHTML={{ __html: summary.summary_text }}
-                />
-                <p className="pt-1 text-[10px] text-slate-500">
-                  Generated on {new Date(summary.created_at).toLocaleString()}.
-                  This is speculative and for reflection only.
-                </p>
-              </div>
-            ) : (
-              <p className="text-[11px] text-slate-400">
-                No AI interpretation yet. For now, the main focus is on the
-                longer-term patterns across your dreams.
-              </p>
-            )}
-          </div>
+          <DreamContent
+            dream={{
+              id: dream.id,
+              slug: dream.slug,
+              title: dream.title,
+              description: dream.description,
+              dream_date: dream.dream_date,
+              visibility: dream.visibility,
+              image_url: dream.image_url
+            }}
+            isOwner={!!user && user.id === dream.user_id}
+            initialSummary={summary ?? null}
+          />
         </div>
       </article>
     </main>

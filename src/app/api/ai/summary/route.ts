@@ -91,23 +91,46 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory."
-        },
-        {
-          role: "user",
-          content: userContentParts
-        }
-      ],
-      temperature: 0.7
-    });
+    let content: OpenAI.Chat.Completions.ChatCompletionMessage["content"];
 
-    const content = completion.choices[0]?.message?.content;
+    try {
+      const completionWithImage = await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory."
+          },
+          {
+            role: "user",
+            content: userContentParts
+          }
+        ],
+        temperature: 0.7
+      });
+      content = completionWithImage.choices[0]?.message?.content;
+    } catch (visionError) {
+      // Some external image hosts (like Midjourney CDN) may block direct fetching.
+      // If that happens, fall back to a text-only interpretation.
+      const textOnlyCompletion = await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory."
+          },
+          {
+            role: "user",
+            content: basePrompt
+          }
+        ],
+        temperature: 0.7
+      });
+      content = textOnlyCompletion.choices[0]?.message?.content;
+    }
+
     const summaryText =
       typeof content === "string"
         ? content

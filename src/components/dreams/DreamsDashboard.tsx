@@ -539,23 +539,21 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                   ? "Listening to your dreams…"
                   : "Generate themes for this period"}
               </button>
-              <div className="mt-3 flex gap-4">
-                <div className="max-h-[420px] flex-1 overflow-y-auto rounded-2xl border border-slate-800 bg-night-900/80 p-4 text-[11px] leading-relaxed text-slate-200">
-                  {aggregateSummary ? (
-                    <div
-                      className="space-y-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-100 [&_h4]:text-[11px] [&_h4]:font-semibold [&_h4]:text-slate-200 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
-                      // summary is generated HTML from our own backend prompt
-                      dangerouslySetInnerHTML={{ __html: aggregateSummary }}
-                    />
-                  ) : (
-                    "Once you have a few nights logged, try a 7–30 day window. The more you feed it, the more interesting the themes become."
-                  )}
-                </div>
-                <div className="max-h-[420px] w-72 shrink-0 rounded-2xl border border-slate-800 bg-night-900/80 p-3 text-[11px] text-slate-200">
+              <div className="mt-3 max-h-[420px] overflow-y-auto rounded-2xl border border-slate-800 bg-night-900/80 p-4 text-[11px] leading-relaxed text-slate-200">
+                {aggregateSummary ? (
+                  <div
+                    className="space-y-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-100 [&_h4]:text-[11px] [&_h4]:font-semibold [&_h4]:text-slate-200 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
+                    // summary is generated HTML from our own backend prompt
+                    dangerouslySetInnerHTML={{ __html: aggregateSummary }}
+                  />
+                ) : (
+                  "Once you have a few nights logged, try a 7–30 day window. The more you feed it, the more interesting the themes become."
+                )}
+                <div className="mt-4 border-t border-slate-800 pt-3">
                   <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
                     Ask the guide
                   </div>
-                  <div className="mb-2 flex max-h-64 flex-col gap-2 overflow-y-auto">
+                  <div className="mb-2 flex flex-col gap-2">
                     {chatMessages.length === 0 ? (
                       <p className="text-[11px] text-slate-500">
                         After reading the themes, ask a follow‑up like{" "}
