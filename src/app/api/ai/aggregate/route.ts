@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const { data: dreams, error: dreamsError } = await supabase
       .from("dreams")
-      .select("title, description, dream_date, visibility, image_url")
+      .select("id, title, description, dream_date, visibility, image_url")
       .eq("user_id", user.id)
       .gte("dream_date", from)
       .lte("dream_date", to)
@@ -101,11 +101,83 @@ export async function POST(req: NextRequest) {
     });
 
     // Add images for dreams that have them
+    // Convert Midjourney CDN URLs to Supabase storage URLs first
+    const convertedImageUrls: Record<string, string> = {};
+    
     for (const dream of dreamsWithImages) {
       if (dream.image_url) {
+        let imageUrlToUse = dream.image_url;
+        const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
+        
+        // If it's not a Supabase URL, convert it
+        if (!isSupabaseUrl && !convertedImageUrls[dream.image_url]) {
+          try {
+            console.log("Converting Midjourney CDN URL for aggregate analysis:", dream.image_url);
+            const imageResponse = await fetch(dream.image_url, {
+              headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+                "Referer": "https://www.midjourney.com/",
+                "Accept-Language": "en-US,en;q=0.9"
+              },
+              redirect: "follow"
+            });
+            
+            if (imageResponse.ok) {
+              const imageBlob = await imageResponse.blob();
+              const contentType = imageBlob.type || "image/jpeg";
+              
+              let ext = "jpg";
+              if (contentType.includes("png")) ext = "png";
+              else if (contentType.includes("webp")) ext = "webp";
+              else if (contentType.includes("gif")) ext = "gif";
+              
+              const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+              const filePath = `${user.id}/${fileName}`;
+              const file = new File([imageBlob], fileName, { type: contentType });
+              
+              const { error: uploadError } = await supabase.storage
+                .from("dream-images")
+                .upload(filePath, file, {
+                  cacheControl: "31536000",
+                  upsert: false
+                });
+              
+              if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                  .from("dream-images")
+                  .getPublicUrl(filePath);
+                
+                imageUrlToUse = publicUrl;
+                convertedImageUrls[dream.image_url] = publicUrl;
+                console.log("Successfully converted to Supabase URL:", imageUrlToUse);
+                
+                // Update the dream's image_url in the database
+                if (dream.id) {
+                  await supabase
+                    .from("dreams")
+                    .update({ image_url: publicUrl })
+                    .eq("id", dream.id);
+                }
+              } else {
+                console.error("Failed to upload converted image:", uploadError);
+              }
+            } else {
+              console.error("Failed to fetch image from CDN:", imageResponse.status);
+            }
+          } catch (convertError) {
+            console.error("Error converting image:", convertError);
+            // Skip this image - continue with others
+            continue;
+          }
+        } else if (convertedImageUrls[dream.image_url]) {
+          // Use already converted URL
+          imageUrlToUse = convertedImageUrls[dream.image_url];
+        }
+        
         userContentParts.push({
           type: "image_url" as const,
-          image_url: { url: dream.image_url }
+          image_url: { url: imageUrlToUse }
         });
         userContentParts.push({
           type: "text" as const,
@@ -119,12 +191,12 @@ export async function POST(req: NextRequest) {
       // Try with vision model if we have images
       if (dreamsWithImages.length > 0) {
         completion = await openai.chat.completions.create({
-          model: "gpt-4.1-mini",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
               content:
-                "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection."
+                "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection. When analyzing dream images, describe specific visual elements you see (colors, objects, composition, mood, settings) and connect them to the themes and patterns across the dreams."
             },
             {
               role: "user",
@@ -162,12 +234,12 @@ export async function POST(req: NextRequest) {
         ].join("\n");
 
         completion = await openai.chat.completions.create({
-          model: "gpt-4.1-mini",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
               content:
-                "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection."
+                "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection. When analyzing dream images, describe specific visual elements you see (colors, objects, composition, mood, settings) and connect them to the themes and patterns across the dreams."
             },
             { role: "user", content: textPrompt }
           ],
@@ -204,7 +276,7 @@ export async function POST(req: NextRequest) {
       ].join("\n");
 
       completion = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
