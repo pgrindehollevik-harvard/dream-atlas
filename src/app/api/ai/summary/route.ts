@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     let usedImage = false;
     let imageError: string | null = null;
-    let content: OpenAI.Chat.Completions.ChatCompletionMessage["content"];
+    let content: OpenAI.Chat.Completions.ChatCompletionMessage["content"] | undefined = undefined;
 
     if (dream.image_url) {
       // Check if it's a Supabase storage URL (should work) or external CDN (might fail)
