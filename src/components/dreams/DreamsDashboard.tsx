@@ -83,33 +83,58 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       const supabase = createSupabaseBrowserClient();
       
       // If imageUrl is a Midjourney CDN link, convert it to Supabase storage first
+      // Do this client-side since Midjourney CDN blocks server requests
       let finalImageUrl = imageUrl || null;
       if (imageUrl && imageUrl.trim() && !imageUrl.includes("supabase.co/storage/v1/object/public/dream-images")) {
         try {
-          console.log("Converting Midjourney CDN URL to Supabase storage:", imageUrl.trim());
-          const importRes = await fetch("/api/images/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageUrl: imageUrl.trim() })
+          console.log("Converting Midjourney CDN URL to Supabase storage (client-side):", imageUrl.trim());
+          
+          // Fetch the image in the browser (can access CDN)
+          const imageResponse = await fetch(imageUrl.trim(), {
+            mode: "cors",
+            credentials: "omit"
           });
           
-          if (!importRes.ok) {
-            const errorText = await importRes.text();
-            console.error("Image import API error:", importRes.status, errorText);
-            throw new Error(`Image conversion failed: ${importRes.status} ${errorText}`);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
           }
           
-          const importJson = await importRes.json();
-          if (importJson.storedUrl) {
-            finalImageUrl = importJson.storedUrl;
-            console.log("Successfully converted image to Supabase storage:", finalImageUrl);
-          } else {
-            console.error("Image import response missing storedUrl:", importJson);
-            throw new Error(importJson.error || "Image conversion failed: No URL returned");
+          const imageBlob = await imageResponse.blob();
+          const contentType = imageBlob.type || "image/jpeg";
+          
+          // Determine file extension
+          let ext = "jpg";
+          if (contentType.includes("png")) ext = "png";
+          else if (contentType.includes("webp")) ext = "webp";
+          else if (contentType.includes("gif")) ext = "gif";
+          
+          // Create a File object
+          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const filePath = `${user.id}/${fileName}`;
+          const file = new File([imageBlob], fileName, { type: contentType });
+          
+          // Upload to Supabase storage
+          const { error: uploadError } = await supabase.storage
+            .from("dream-images")
+            .upload(filePath, file, {
+              cacheControl: "31536000",
+              upsert: false
+            });
+          
+          if (uploadError) {
+            throw new Error(`Upload failed: ${uploadError.message}`);
           }
+          
+          // Get the public URL
+          const {
+            data: { publicUrl }
+          } = supabase.storage.from("dream-images").getPublicUrl(filePath);
+          
+          finalImageUrl = publicUrl;
+          console.log("Successfully converted image to Supabase storage:", finalImageUrl);
         } catch (importError) {
           console.error("Image import failed:", importError);
-          setError(`Image conversion failed: ${importError instanceof Error ? importError.message : String(importError)}. Please try again or use a different image URL.`);
+          setError(`Image conversion failed: ${importError instanceof Error ? importError.message : String(importError)}. Please try downloading the image and uploading it directly, or use a different image URL.`);
           setSubmitting(false);
           return; // Don't save the dream if image conversion fails
         }

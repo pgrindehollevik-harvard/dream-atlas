@@ -30,21 +30,30 @@ export async function POST(req: NextRequest) {
     // Download the image from the CDN
     let imageResponse: Response;
     try {
+      // Try with different headers to avoid CDN blocking
       imageResponse = await fetch(imageUrl, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; DreamAtlas/1.0)"
-        }
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+          "Referer": "https://www.midjourney.com/",
+          "Accept-Language": "en-US,en;q=0.9"
+        },
+        // Add redirect handling
+        redirect: "follow"
       });
     } catch (fetchError) {
+      console.error("Fetch error:", fetchError);
       return NextResponse.json(
-        { error: "Could not fetch image from URL" },
+        { error: `Could not fetch image from URL: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}` },
         { status: 400 }
       );
     }
 
     if (!imageResponse.ok) {
+      const errorText = await imageResponse.text().catch(() => `HTTP ${imageResponse.status}`);
+      console.error(`Image fetch failed: ${imageResponse.status} ${imageResponse.statusText}`, errorText);
       return NextResponse.json(
-        { error: "Image URL returned an error" },
+        { error: `Image URL returned an error: ${imageResponse.status} ${imageResponse.statusText}. The Midjourney CDN may be blocking server requests. Try downloading the image and uploading it directly instead.` },
         { status: 400 }
       );
     }
