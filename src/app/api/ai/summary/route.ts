@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
       ``,
       `Dream description:`,
       dream.description || "(no description provided)",
+      dream.image_url ? `` : ``,
+      dream.image_url ? `NOTE: There is an image associated with this dream. When analyzing, describe specific visual elements you see in the image (colors, objects, composition, mood, setting) and connect them to the dream's themes and symbols.` : ``,
       ``,
       `1) Give a short, poetic summary in 2–3 sentences.`,
       `2) Name 3–5 key symbols or motifs and what they might represent psychologically.`,
@@ -82,37 +84,146 @@ export async function POST(req: NextRequest) {
       }
     ];
 
+    let usedImage = false;
+    let imageError: string | null = null;
+    let content: OpenAI.Chat.Completions.ChatCompletionMessage["content"];
+
     if (dream.image_url) {
+      // Check if it's a Supabase storage URL (should work) or external CDN (might fail)
+      const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
+      
       userContentParts.push({
         type: "image_url",
         image_url: {
           url: dream.image_url
         }
       });
-    }
 
-    let content: OpenAI.Chat.Completions.ChatCompletionMessage["content"];
-
-    try {
-      const completionWithImage = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory."
-          },
-          {
-            role: "user",
-            content: userContentParts
+      try {
+        const completionWithImage = await openai.chat.completions.create({
+          model: "gpt-4.1-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory. When analyzing a dream image, describe specific visual elements you see (colors, objects, composition, mood) and connect them to the dream's themes."
+            },
+            {
+              role: "user",
+              content: userContentParts
+            }
+          ],
+          temperature: 0.7
+        });
+        content = completionWithImage.choices[0]?.message?.content;
+        usedImage = true;
+      } catch (visionError) {
+        // Log the error for debugging
+        imageError = String(visionError);
+        console.error("Vision model error:", visionError);
+        
+        // If it's not a Supabase URL, try to convert it first
+        if (!isSupabaseUrl) {
+          try {
+            // Download and convert the image
+            const imageResponse = await fetch(dream.image_url, {
+              headers: {
+                "User-Agent": "Mozilla/5.0 (compatible; DreamAtlas/1.0)"
+              }
+            });
+            
+            if (imageResponse.ok) {
+              const imageBlob = await imageResponse.blob();
+              const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+              
+              let ext = "jpg";
+              if (contentType.includes("png")) ext = "png";
+              else if (contentType.includes("webp")) ext = "webp";
+              else if (contentType.includes("gif")) ext = "gif";
+              
+              const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+              const filePath = `${user.id}/${fileName}`;
+              const file = new File([imageBlob], fileName, { type: contentType });
+              
+              const { error: uploadError } = await supabase.storage
+                .from("dream-images")
+                .upload(filePath, file, {
+                  cacheControl: "31536000",
+                  upsert: false
+                });
+              
+              if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                  .from("dream-images")
+                  .getPublicUrl(filePath);
+                
+                // Retry with the converted URL
+                const retryContentParts = [
+                  {
+                    type: "text",
+                    text: basePrompt
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: publicUrl
+                    }
+                  }
+                ];
+                
+                const retryCompletion = await openai.chat.completions.create({
+                  model: "gpt-4.1-mini",
+                  messages: [
+                    {
+                      role: "system",
+                      content:
+                        "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory. When analyzing a dream image, describe specific visual elements you see (colors, objects, composition, mood) and connect them to the dream's themes."
+                    },
+                    {
+                      role: "user",
+                      content: retryContentParts
+                    }
+                  ],
+                  temperature: 0.7
+                });
+                content = retryCompletion.choices[0]?.message?.content;
+                usedImage = true;
+                
+                // Update the dream's image_url to the stored version
+                await supabase
+                  .from("dreams")
+                  .update({ image_url: publicUrl })
+                  .eq("id", dream.id);
+              }
+            }
+          } catch (importError) {
+            // Fall back to text-only
+            console.error("Image import and retry failed:", importError);
           }
-        ],
-        temperature: 0.7
-      });
-      content = completionWithImage.choices[0]?.message?.content;
-    } catch (visionError) {
-      // Some external image hosts (like Midjourney CDN) may block direct fetching.
-      // If that happens, fall back to a text-only interpretation.
+        }
+        
+        // If we still don't have content, fall back to text-only
+        if (!content) {
+          const textOnlyCompletion = await openai.chat.completions.create({
+            model: "gpt-4.1-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory."
+              },
+              {
+                role: "user",
+                content: basePrompt
+              }
+            ],
+            temperature: 0.7
+          });
+          content = textOnlyCompletion.choices[0]?.message?.content;
+        }
+      }
+    } else {
+      // No image, use text-only
       const textOnlyCompletion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
         messages: [
