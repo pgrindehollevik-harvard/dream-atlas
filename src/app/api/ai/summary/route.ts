@@ -103,8 +103,9 @@ export async function POST(req: NextRequest) {
       });
 
       try {
+        console.log("Attempting vision model with image URL:", dream.image_url);
         const completionWithImage = await openai.chat.completions.create({
-          model: "gpt-4.1-mini",
+          model: "gpt-4o-mini", // Use vision-capable model
           messages: [
             {
               role: "system",
@@ -120,10 +121,12 @@ export async function POST(req: NextRequest) {
         });
         content = completionWithImage.choices[0]?.message?.content;
         usedImage = true;
+        console.log("Vision model succeeded, used image:", usedImage);
       } catch (visionError) {
         // Log the error for debugging
         imageError = String(visionError);
         console.error("Vision model error:", visionError);
+        console.error("Error details:", JSON.stringify(visionError, null, 2));
         
         // If it's not a Supabase URL, try to convert it first
         if (!isSupabaseUrl) {
@@ -177,8 +180,9 @@ export async function POST(req: NextRequest) {
                   }
                 ];
                 
+                console.log("Retrying with converted Supabase URL:", publicUrl);
                 const retryCompletion = await openai.chat.completions.create({
-                  model: "gpt-4.1-mini",
+                  model: "gpt-4o-mini", // Use vision-capable model
                   messages: [
                     {
                       role: "system",
@@ -210,8 +214,9 @@ export async function POST(req: NextRequest) {
         
         // If we still don't have content, fall back to text-only
         if (!content) {
+          console.log("Falling back to text-only interpretation");
           const textOnlyCompletion = await openai.chat.completions.create({
-            model: "gpt-4.1-mini",
+            model: "gpt-4o-mini",
             messages: [
               {
                 role: "system",
@@ -230,8 +235,9 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // No image, use text-only
+      console.log("No image URL, using text-only interpretation");
       const textOnlyCompletion = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -284,7 +290,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       summary: inserted?.summary_text,
-      createdAt: inserted?.created_at
+      createdAt: inserted?.created_at,
+      usedImage: usedImage,
+      imageError: imageError
     });
   } catch (error) {
     return NextResponse.json(
