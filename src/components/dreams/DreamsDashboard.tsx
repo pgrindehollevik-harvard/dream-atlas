@@ -86,21 +86,32 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       let finalImageUrl = imageUrl || null;
       if (imageUrl && imageUrl.trim() && !imageUrl.includes("supabase.co/storage/v1/object/public/dream-images")) {
         try {
+          console.log("Converting Midjourney CDN URL to Supabase storage:", imageUrl.trim());
           const importRes = await fetch("/api/images/import", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ imageUrl: imageUrl.trim() })
           });
+          
+          if (!importRes.ok) {
+            const errorText = await importRes.text();
+            console.error("Image import API error:", importRes.status, errorText);
+            throw new Error(`Image conversion failed: ${importRes.status} ${errorText}`);
+          }
+          
           const importJson = await importRes.json();
-          if (importRes.ok && importJson.storedUrl) {
+          if (importJson.storedUrl) {
             finalImageUrl = importJson.storedUrl;
+            console.log("Successfully converted image to Supabase storage:", finalImageUrl);
           } else {
-            // If import fails, still save with the original URL (might work for some CDNs)
-            console.warn("Could not import image, using original URL:", importJson.error);
+            console.error("Image import response missing storedUrl:", importJson);
+            throw new Error(importJson.error || "Image conversion failed: No URL returned");
           }
         } catch (importError) {
-          // If import fails, still save with the original URL
-          console.warn("Image import failed, using original URL:", importError);
+          console.error("Image import failed:", importError);
+          setError(`Image conversion failed: ${importError instanceof Error ? importError.message : String(importError)}. Please try again or use a different image URL.`);
+          setSubmitting(false);
+          return; // Don't save the dream if image conversion fails
         }
       }
 

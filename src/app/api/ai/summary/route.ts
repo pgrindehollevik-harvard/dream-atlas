@@ -94,16 +94,73 @@ export async function POST(req: NextRequest) {
     if (dream.image_url) {
       // Check if it's a Supabase storage URL (should work) or external CDN (might fail)
       const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
+      let imageUrlToUse = dream.image_url;
+      
+      // If it's not a Supabase URL, convert it first
+      if (!isSupabaseUrl) {
+        console.log("Converting Midjourney CDN URL to Supabase storage:", dream.image_url);
+        try {
+          // Download and convert the image
+          const imageResponse = await fetch(dream.image_url, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (compatible; DreamAtlas/1.0)"
+            }
+          });
+          
+          if (imageResponse.ok) {
+            const imageBlob = await imageResponse.blob();
+            const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+            
+            let ext = "jpg";
+            if (contentType.includes("png")) ext = "png";
+            else if (contentType.includes("webp")) ext = "webp";
+            else if (contentType.includes("gif")) ext = "gif";
+            
+            const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+            const filePath = `${user.id}/${fileName}`;
+            const file = new File([imageBlob], fileName, { type: contentType });
+            
+            const { error: uploadError } = await supabase.storage
+              .from("dream-images")
+              .upload(filePath, file, {
+                cacheControl: "31536000",
+                upsert: false
+              });
+            
+            if (!uploadError) {
+              const { data: { publicUrl } } = supabase.storage
+                .from("dream-images")
+                .getPublicUrl(filePath);
+              
+              imageUrlToUse = publicUrl;
+              console.log("Successfully converted to Supabase URL:", imageUrlToUse);
+              
+              // Update the dream's image_url to the stored version
+              await supabase
+                .from("dreams")
+                .update({ image_url: publicUrl })
+                .eq("id", dream.id);
+            } else {
+              console.error("Failed to upload converted image:", uploadError);
+            }
+          } else {
+            console.error("Failed to fetch image from CDN:", imageResponse.status);
+          }
+        } catch (convertError) {
+          console.error("Error converting image:", convertError);
+          // Continue with original URL - might work for some CDNs
+        }
+      }
       
       userContentParts.push({
         type: "image_url" as const,
         image_url: {
-          url: dream.image_url
+          url: imageUrlToUse
         }
       });
 
       try {
-        console.log("Attempting vision model with image URL:", dream.image_url);
+        console.log("Attempting vision model with image URL:", imageUrlToUse);
         const completionWithImage = await openai.chat.completions.create({
           model: "gpt-4o-mini", // Use vision-capable model
           messages: [
@@ -127,90 +184,6 @@ export async function POST(req: NextRequest) {
         imageError = String(visionError);
         console.error("Vision model error:", visionError);
         console.error("Error details:", JSON.stringify(visionError, null, 2));
-        
-        // If it's not a Supabase URL, try to convert it first
-        if (!isSupabaseUrl) {
-          try {
-            // Download and convert the image
-            const imageResponse = await fetch(dream.image_url, {
-              headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; DreamAtlas/1.0)"
-              }
-            });
-            
-            if (imageResponse.ok) {
-              const imageBlob = await imageResponse.blob();
-              const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
-              
-              let ext = "jpg";
-              if (contentType.includes("png")) ext = "png";
-              else if (contentType.includes("webp")) ext = "webp";
-              else if (contentType.includes("gif")) ext = "gif";
-              
-              const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-              const filePath = `${user.id}/${fileName}`;
-              const file = new File([imageBlob], fileName, { type: contentType });
-              
-              const { error: uploadError } = await supabase.storage
-                .from("dream-images")
-                .upload(filePath, file, {
-                  cacheControl: "31536000",
-                  upsert: false
-                });
-              
-              if (!uploadError) {
-                const { data: { publicUrl } } = supabase.storage
-                  .from("dream-images")
-                  .getPublicUrl(filePath);
-                
-                // Retry with the converted URL
-                const retryContentParts: (
-                  | { type: "text"; text: string }
-                  | { type: "image_url"; image_url: { url: string } }
-                )[] = [
-                  {
-                    type: "text" as const,
-                    text: basePrompt
-                  },
-                  {
-                    type: "image_url" as const,
-                    image_url: {
-                      url: publicUrl
-                    }
-                  }
-                ];
-                
-                console.log("Retrying with converted Supabase URL:", publicUrl);
-                const retryCompletion = await openai.chat.completions.create({
-                  model: "gpt-4o-mini", // Use vision-capable model
-                  messages: [
-                    {
-                      role: "system",
-                      content:
-                        "You specialise in dreams and symbolic imagery. You avoid medical or diagnostic language and keep things exploratory. When analyzing a dream image, describe specific visual elements you see (colors, objects, composition, mood) and connect them to the dream's themes."
-                    },
-                    {
-                      role: "user",
-                      content: retryContentParts
-                    }
-                  ],
-                  temperature: 0.7
-                });
-                content = retryCompletion.choices[0]?.message?.content;
-                usedImage = true;
-                
-                // Update the dream's image_url to the stored version
-                await supabase
-                  .from("dreams")
-                  .update({ image_url: publicUrl })
-                  .eq("id", dream.id);
-              }
-            }
-          } catch (importError) {
-            // Fall back to text-only
-            console.error("Image import and retry failed:", importError);
-          }
-        }
         
         // If we still don't have content, fall back to text-only
         if (!content) {
