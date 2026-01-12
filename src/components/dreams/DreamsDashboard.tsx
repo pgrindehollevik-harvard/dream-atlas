@@ -6,6 +6,7 @@ import type { Dream, DreamVisibility } from "@/types/dreams";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 
 type Props = {
   user: SessionUser;
@@ -300,19 +301,22 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                     <label className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
                       Visibility
                     </label>
-                    <select
-                      value={visibility}
-                      onChange={(e) =>
-                        setVisibility(e.target.value as DreamVisibility)
-                      }
-                      className="w-full rounded-lg border border-slate-700 bg-night-900 px-2 py-1.5 text-xs text-slate-100 outline-none ring-dream-500/40 focus:border-dream-400 focus:ring-2"
-                    >
-                      {visibilities.map((v) => (
-                        <option key={v.value} value={v.value}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={visibility}
+                        onChange={(e) =>
+                          setVisibility(e.target.value as DreamVisibility)
+                        }
+                        className="w-full appearance-none rounded-lg border border-slate-700 bg-night-900 px-2 py-1.5 pr-7 text-xs text-slate-100 outline-none ring-dream-500/40 focus:border-dream-400 focus:ring-2"
+                      >
+                        {visibilities.map((v) => (
+                          <option key={v.value} value={v.value}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-1 text-xs">

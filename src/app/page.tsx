@@ -6,7 +6,7 @@ export default function LandingPage() {
       <section className="mt-10 grid gap-10 md:grid-cols-[1.1fr,0.9fr] md:items-center">
         <div>
           <p className="mb-4 text-xs uppercase tracking-[0.3em] text-slate-400">
-            Midjourney x Dreams
+            Midjourney Images x Dreams
           </p>
           <h1 className="mb-6 text-4xl font-semibold tracking-tight md:text-6xl">
             Turn last night&apos;s dreams into a{" "}
