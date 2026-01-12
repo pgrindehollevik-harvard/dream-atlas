@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     // Add intro text
     userContentParts.push({
-      type: "text",
+      type: "text" as const,
       text: [
         `You are helping someone explore patterns across several dreams.`,
         ``,
@@ -103,11 +103,11 @@ export async function POST(req: NextRequest) {
     for (const dream of dreamsWithImages) {
       if (dream.image_url) {
         userContentParts.push({
-          type: "image_url",
+          type: "image_url" as const,
           image_url: { url: dream.image_url }
         });
         userContentParts.push({
-          type: "text",
+          type: "text" as const,
           text: `[Image for: ${dream.dream_date} - ${dream.title}]`
         });
       }

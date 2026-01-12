@@ -77,9 +77,12 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n");
 
-    const userContentParts: any[] = [
+    const userContentParts: (
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    )[] = [
       {
-        type: "text",
+        type: "text" as const,
         text: basePrompt
       }
     ];
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
       const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
       
       userContentParts.push({
-        type: "image_url",
+        type: "image_url" as const,
         image_url: {
           url: dream.image_url
         }
@@ -158,13 +161,16 @@ export async function POST(req: NextRequest) {
                   .getPublicUrl(filePath);
                 
                 // Retry with the converted URL
-                const retryContentParts = [
+                const retryContentParts: (
+                  | { type: "text"; text: string }
+                  | { type: "image_url"; image_url: { url: string } }
+                )[] = [
                   {
-                    type: "text",
+                    type: "text" as const,
                     text: basePrompt
                   },
                   {
-                    type: "image_url",
+                    type: "image_url" as const,
                     image_url: {
                       url: publicUrl
                     }

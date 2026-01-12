@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
         | { type: "image_url"; image_url: { url: string } }
       )[] = [
         {
-          type: "text",
+          type: "text" as const,
           text: contextText
         }
       ];
@@ -162,11 +162,11 @@ export async function POST(req: NextRequest) {
       for (const dream of dreamsWithImages) {
         if (dream.image_url) {
           contextParts.push({
-            type: "image_url",
+            type: "image_url" as const,
             image_url: { url: dream.image_url }
           });
           contextParts.push({
-            type: "text",
+            type: "text" as const,
             text: `[Image for: ${dream.dream_date} - ${dream.title}]`
           });
         }
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
       role: "user",
       content: [
         {
-          type: "text",
+          type: "text" as const,
           text: [
             "Here is my new message or question about these dreams:",
             userMessage
