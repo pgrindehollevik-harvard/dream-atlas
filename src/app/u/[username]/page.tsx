@@ -4,11 +4,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function UserPublicPage({ params }: any) {
   const supabase = createSupabaseServerClient();
+  
+  // Next.js 15: params is now a Promise
+  const { username } = await params;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, username, display_name, bio, is_public_profile")
-    .eq("username", params.username)
+    .eq("username", username)
     .maybeSingle();
 
   if (!profile || !profile.is_public_profile) {

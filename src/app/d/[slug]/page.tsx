@@ -5,6 +5,9 @@ import { DreamContent } from "@/components/dreams/DreamInterpretation";
 
 export default async function DreamDetailPage({ params }: any) {
   const supabase = createSupabaseServerClient();
+  
+  // Next.js 15: params is now a Promise
+  const { slug } = await params;
 
   const {
     data: { user }
@@ -15,7 +18,7 @@ export default async function DreamDetailPage({ params }: any) {
     .select(
       "id, slug, title, description, dream_date, visibility, image_url, created_at, user_id"
     )
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .maybeSingle();
 
   if (!dream) {
