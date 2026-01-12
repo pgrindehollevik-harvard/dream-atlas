@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { SessionUser } from "@/types/auth";
 import type { Dream, DreamVisibility } from "@/types/dreams";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -56,6 +56,29 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = chatTextareaRef.current;
+    if (textarea) {
+      textarea.style.height = "44px";
+      const scrollHeight = textarea.scrollHeight;
+      if (scrollHeight > 44) {
+        textarea.style.height = `${Math.min(scrollHeight, 120)}px`;
+      }
+    }
+  }, [chatInput]);
+
+  // Auto-scroll chat messages to bottom
+  useEffect(() => {
+    const messagesContainer = chatMessagesRef.current;
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }, [chatMessages, chatSending]);
 
   function getRangeDates(preset: RangePreset) {
     const today = new Date();
@@ -183,6 +206,11 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
   async function handleGenerateAggregate() {
     setAggregateError(null);
     setAggregateLoading(true);
+    // Reset chat when generating new themes
+    setChatMessages([]);
+    setChatSessionId(null);
+    setChatInput("");
+    setChatError(null);
     try {
       const { from, to } = getRangeDates(rangePreset);
 
@@ -233,6 +261,7 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     const message = chatInput.trim();
     if (!message) return;
     setChatSending(true);
+    setChatError(null);
     try {
       const { from, to } = getRangeDates(rangePreset);
       const res = await fetch("/api/ai/chat", {
@@ -247,8 +276,7 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       });
       const json = await res.json();
       if (!res.ok) {
-        // eslint-disable-next-line no-alert
-        alert(json.error || "Could not send message.");
+        setChatError(json.error || "Could not send message. Please try again.");
       } else {
         setChatSessionId(json.sessionId as string);
         const assistantMessage = json.assistantMessage as string;
@@ -259,9 +287,9 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         ]);
         setChatInput("");
       }
-    } catch {
-      // eslint-disable-next-line no-alert
-      alert("Something went wrong.");
+    } catch (err) {
+      setChatError("Something went wrong. Please try again.");
+      console.error("Chat error:", err);
     } finally {
       setChatSending(false);
     }
@@ -602,70 +630,148 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                   ? "Listening to your dreams…"
                   : "Generate themes for this period"}
               </button>
-              <div className="mt-3 max-h-[420px] overflow-y-auto rounded-2xl border border-slate-800 bg-night-900/80 p-4 text-[11px] leading-relaxed text-slate-200">
-                {aggregateSummary ? (
-                  <div
-                    className="space-y-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-100 [&_h4]:text-[11px] [&_h4]:font-semibold [&_h4]:text-slate-200 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
-                    // summary is generated HTML from our own backend prompt
-                    dangerouslySetInnerHTML={{ __html: aggregateSummary }}
-                  />
-                ) : (
-                  "Once you have a few nights logged, try a 7–30 day window. The more you feed it, the more interesting the themes become."
-                )}
-                <div className="mt-4 border-t border-slate-800 pt-3">
-                  <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
-                    Ask the guide
-                  </div>
-                  <div className="mb-2 flex flex-col gap-2">
-                    {chatMessages.length === 0 ? (
-                      <p className="text-[11px] text-slate-500">
-                        After reading the themes, ask a follow‑up like{" "}
-                        <span className="text-slate-300">
-                          “What do these dreams say about how I relate to
-                          change?”
-                        </span>
-                        .
-                      </p>
-                    ) : (
-                      chatMessages.map((m, idx) => (
-                        <div
-                          key={`${m.role}-${idx}`}
-                          className={
-                            m.role === "user"
-                              ? "ml-auto max-w-[90%] rounded-2xl bg-dream-500/20 px-2.5 py-1.5 text-[11px] text-dream-100"
-                              : "mr-auto max-w-[90%] rounded-2xl bg-slate-800/80 px-2.5 py-1.5 text-[11px] text-slate-100"
-                          }
-                        >
-                          {m.content}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <form
-                    className="mt-2 space-y-1"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!chatSending) {
-                        void handleSendChat();
-                      }
-                    }}
-                  >
-                    <textarea
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-slate-700 bg-night-900 px-2 py-1.5 text-[11px] text-slate-100 outline-none ring-dream-500/40 placeholder:text-slate-500 focus:border-dream-400 focus:ring-2"
-                      placeholder="Ask something about these patterns…"
+              <div className="mt-3 space-y-4">
+                {/* Themes Summary */}
+                <div className="max-h-[300px] overflow-y-auto rounded-2xl border border-slate-800 bg-night-900/80 p-4 text-[11px] leading-relaxed text-slate-200">
+                  {aggregateSummary ? (
+                    <div
+                      className="space-y-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-100 [&_h4]:text-[11px] [&_h4]:font-semibold [&_h4]:text-slate-200 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
+                      // summary is generated HTML from our own backend prompt
+                      dangerouslySetInnerHTML={{ __html: aggregateSummary }}
                     />
-                    <button
-                      type="submit"
-                      disabled={chatSending || !chatInput.trim()}
-                      className="w-full rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-night-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {chatSending ? "Thinking…" : "Ask"}
-                    </button>
-                  </form>
+                  ) : (
+                    "Once you have a few nights logged, try a 7–30 day window. The more you feed it, the more interesting the themes become."
+                  )}
                 </div>
+
+                {/* Chat Section - Only show after themes are generated */}
+                {aggregateSummary && (
+                  <div className="rounded-2xl border border-slate-800 bg-night-900/80">
+                    {/* Chat Messages */}
+                    <div ref={chatMessagesRef} className="max-h-[400px] overflow-y-auto p-4">
+                      {chatMessages.length === 0 ? (
+                        <div className="flex items-center justify-center py-8">
+                          <p className="text-xs text-slate-400">
+                            Ask a question about these themes to start a conversation
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {chatMessages.map((m, idx) => (
+                            <div
+                              key={`${m.role}-${idx}`}
+                              className={`flex gap-3 ${
+                                m.role === "user" ? "justify-end" : "justify-start"
+                              }`}
+                            >
+                              {m.role === "assistant" && (
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dream-500/20 text-[10px] text-dream-300">
+                                  AI
+                                </div>
+                              )}
+                              <div
+                                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                                  m.role === "user"
+                                    ? "bg-dream-500/20 text-dream-100"
+                                    : "bg-slate-800/60 text-slate-100"
+                                }`}
+                              >
+                                <div className="whitespace-pre-wrap">{m.content}</div>
+                              </div>
+                              {m.role === "user" && (
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] text-slate-300">
+                                  You
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {chatSending && (
+                            <div className="flex gap-3 justify-start">
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dream-500/20 text-[10px] text-dream-300">
+                                AI
+                              </div>
+                              <div className="rounded-2xl bg-slate-800/60 px-4 py-2.5">
+                                <div className="flex gap-1">
+                                  <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></div>
+                                  <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></div>
+                                  <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400"></div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Chat Input */}
+                    <div className="border-t border-slate-800 p-4">
+                      {chatError && (
+                        <p className="mb-2 text-[11px] text-rose-400" role="alert">
+                          {chatError}
+                        </p>
+                      )}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!chatSending && chatInput.trim()) {
+                            void handleSendChat();
+                          }
+                        }}
+                        className="flex gap-2"
+                      >
+                        <textarea
+                          ref={chatTextareaRef}
+                          value={chatInput}
+                          onChange={(e) => {
+                            setChatInput(e.target.value);
+                            setChatError(null);
+                            // Auto-resize
+                            e.target.style.height = "44px";
+                            const scrollHeight = e.target.scrollHeight;
+                            if (scrollHeight > 44) {
+                              e.target.style.height = `${Math.min(scrollHeight, 120)}px`;
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              if (!chatSending && chatInput.trim()) {
+                                void handleSendChat();
+                              }
+                            }
+                          }}
+                          rows={1}
+                          className="flex-1 resize-none rounded-xl border border-slate-700 bg-night-900 px-4 py-2.5 text-sm text-slate-100 outline-none ring-dream-500/40 placeholder:text-slate-500 focus:border-dream-400 focus:ring-2"
+                          placeholder="Ask about these themes..."
+                          style={{ minHeight: "44px", maxHeight: "120px" }}
+                        />
+                        <button
+                          type="submit"
+                          disabled={chatSending || !chatInput.trim()}
+                          className="flex shrink-0 items-center justify-center rounded-xl bg-dream-500 px-4 py-2.5 text-sm font-medium text-night-900 shadow-glow transition hover:bg-dream-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {chatSending ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-night-900 border-t-transparent"></div>
+                          ) : (
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
