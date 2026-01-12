@@ -281,7 +281,9 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       });
       const json = await res.json();
       if (!res.ok) {
-        setChatError(json.error || "Could not send message. Please try again.");
+        console.error("Chat API error:", json);
+        const errorMsg = json.details || json.error || "Could not send message. Please try again.";
+        setChatError(errorMsg);
       } else {
         setChatSessionId(json.sessionId as string);
         const assistantMessage = json.assistantMessage as string;
@@ -293,8 +295,9 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         setChatInput("");
       }
     } catch (err) {
-      setChatError("Something went wrong. Please try again.");
-      console.error("Chat error:", err);
+      console.error("Chat fetch error:", err);
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setChatError(errorMsg);
     } finally {
       setChatSending(false);
     }

@@ -9,12 +9,14 @@ const openai = new OpenAI({
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("Chat route called");
     const supabase = createSupabaseServerClient();
     const {
       data: { user }
     } = await supabase.auth.getUser();
 
     if (!user) {
+      console.error("Unauthorized chat request");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -23,6 +25,8 @@ export async function POST(req: NextRequest) {
     const from = body.from as string | undefined;
     const to = body.to as string | undefined;
     const userMessage = (body.message as string | undefined)?.trim();
+    
+    console.log("Chat request:", { sessionId, from, to, messageLength: userMessage?.length });
 
     if (!userMessage) {
       return NextResponse.json(
@@ -188,24 +192,46 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    messages.push({
-      role: "user",
-      content: [
-        {
-          type: "text" as const,
-          text: [
-            "Here is my new message or question about these dreams:",
-            userMessage
-          ].join("\n\n")
-        }
-      ]
-    });
+    // Add the new user message
+    // If we're using images, the content should be an array
+    if (Array.isArray(userContextContent)) {
+      messages.push({
+        role: "user",
+        content: [
+          ...userContextContent,
+          {
+            type: "text" as const,
+            text: [
+              "Here is my new message or question about these dreams:",
+              userMessage
+            ].join("\n\n")
+          }
+        ]
+      });
+    } else {
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "text" as const,
+            text: [
+              userContextContent,
+              "",
+              "Here is my new message or question about these dreams:",
+              userMessage
+            ].join("\n\n")
+          }
+        ]
+      });
+    }
 
+    console.log(`Sending to OpenAI: ${messages.length} messages, ${dreamsWithImages.length} images`);
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages,
       temperature: 0.7
     });
+    console.log("OpenAI response received");
 
     const assistantContent = completion.choices[0]?.message?.content;
     const assistantText =
@@ -251,8 +277,12 @@ export async function POST(req: NextRequest) {
       assistantMessage: assistantText
     });
   } catch (error) {
+    console.error("Chat route error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("Error stack:", errorStack);
     return NextResponse.json(
-      { error: "Unexpected error", details: String(error) },
+      { error: "Unexpected error", details: errorMessage },
       { status: 500 }
     );
   }
