@@ -81,6 +81,29 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
 
     try {
       const supabase = createSupabaseBrowserClient();
+      
+      // If imageUrl is a Midjourney CDN link, convert it to Supabase storage first
+      let finalImageUrl = imageUrl || null;
+      if (imageUrl && imageUrl.trim() && !imageUrl.includes("supabase.co/storage/v1/object/public/dream-images")) {
+        try {
+          const importRes = await fetch("/api/images/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: imageUrl.trim() })
+          });
+          const importJson = await importRes.json();
+          if (importRes.ok && importJson.storedUrl) {
+            finalImageUrl = importJson.storedUrl;
+          } else {
+            // If import fails, still save with the original URL (might work for some CDNs)
+            console.warn("Could not import image, using original URL:", importJson.error);
+          }
+        } catch (importError) {
+          // If import fails, still save with the original URL
+          console.warn("Image import failed, using original URL:", importError);
+        }
+      }
+
       const slugBase = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
@@ -97,7 +120,7 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           description,
           dream_date: date,
           visibility,
-          image_url: imageUrl || null,
+          image_url: finalImageUrl,
           slug
         })
         .select(

@@ -117,6 +117,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const dreamsWithImages = dreams?.filter((d) => d.image_url) ?? [];
+
+    const systemPrompt =
+      "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context.";
+
     const contextLines =
       dreams?.map(
         (d) =>
@@ -124,9 +129,6 @@ export async function POST(req: NextRequest) {
             d.description?.slice(0, 200) ?? "(no description)"
           }`
       ) ?? [];
-
-    const systemPrompt =
-      "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context.";
 
     const contextText = [
       `The user is exploring patterns across their dreams.`,
@@ -139,9 +141,44 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n");
 
+    // Build content with images if available
+    let userContextContent: string | (
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    )[];
+
+    if (dreamsWithImages.length > 0) {
+      const contextParts: (
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      )[] = [
+        {
+          type: "text",
+          text: contextText
+        }
+      ];
+
+      // Add images for dreams that have them
+      for (const dream of dreamsWithImages) {
+        if (dream.image_url) {
+          contextParts.push({
+            type: "image_url",
+            image_url: { url: dream.image_url }
+          });
+          contextParts.push({
+            type: "text",
+            text: `[Image for: ${dream.dream_date} - ${dream.title}]`
+          });
+        }
+      }
+      userContextContent = contextParts;
+    } else {
+      userContextContent = contextText;
+    }
+
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: contextText }
+      { role: "user", content: userContextContent }
     ];
 
     for (const m of previousMessages ?? []) {

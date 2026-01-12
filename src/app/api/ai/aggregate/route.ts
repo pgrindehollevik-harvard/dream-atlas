@@ -58,48 +58,162 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const dreamBullets = dreams
-      .map(
-        (d) =>
-          `- [${d.dream_date}] ${d.title}: ${
-            d.description?.slice(0, 400) ?? "(no description)"
-          }`
-      )
-      .join("\n");
+    // Build content with images for vision model
+    const dreamsWithImages = dreams.filter((d) => d.image_url);
+    const dreamsWithoutImages = dreams.filter((d) => !d.image_url);
 
-    const prompt = [
-      `You are helping someone explore patterns across several dreams.`,
-      ``,
-      `Here are their dreams between ${from} and ${to}:`,
-      dreamBullets,
-      ``,
-      `Please:`,
-      `1) Summarise recurring themes, settings, and emotional tones.`,
-      `2) Point out 3–7 motifs that appear more than once.`,
-      `3) Offer a short paragraph on how these might connect to waking life (without making diagnoses).`,
-      `4) Finish with 2 or 3 reflection prompts they can journal on.`,
-      ``,
-      `IMPORTANT: Return your answer as a short HTML fragment, no <html> or <body> tags.`,
-      `Use simple, clean structure:`,
-      `- A <h3> "Themes" section with paragraphs.`,
-      `- A <h3> "Motifs" section with a <ul><li> list of motifs.`,
-      `- A <h3> "Reflection prompts" section with <ul><li> questions.`,
-      `You may use <strong> and <em> for gentle emphasis, but avoid overly decorative markup.`,
-      `Keep it under ~500 words, warm in tone, and easy to read.`
-    ].join("\n");
+    const userContentParts: (
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    )[] = [];
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection."
-        },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7
+    // Add intro text
+    userContentParts.push({
+      type: "text",
+      text: [
+        `You are helping someone explore patterns across several dreams.`,
+        ``,
+        `Here are their dreams between ${from} and ${to}:`,
+        ``,
+        ...dreams.map(
+          (d) =>
+            `- [${d.dream_date}] ${d.title}: ${
+              d.description?.slice(0, 200) ?? "(no description)"
+            }`
+        ),
+        ``,
+        `Please analyze these dreams, taking into account both the text descriptions and the images (where provided).`,
+        `Please:`,
+        `1) Summarise recurring themes, settings, and emotional tones.`,
+        `2) Point out 3–7 motifs that appear more than once.`,
+        `3) Offer a short paragraph on how these might connect to waking life (without making diagnoses).`,
+        `4) Finish with 2 or 3 reflection prompts they can journal on.`,
+        ``,
+        `IMPORTANT: Return your answer as a short HTML fragment, no <html> or <body> tags.`,
+        `Use simple, clean structure:`,
+        `- A <h3> "Themes" section with paragraphs.`,
+        `- A <h3> "Motifs" section with a <ul><li> list of motifs.`,
+        `- A <h3> "Reflection prompts" section with <ul><li> questions.`,
+        `You may use <strong> and <em> for gentle emphasis, but avoid overly decorative markup.`,
+        `Keep it under ~500 words, warm in tone, and easy to read.`
+      ].join("\n")
     });
+
+    // Add images for dreams that have them
+    for (const dream of dreamsWithImages) {
+      if (dream.image_url) {
+        userContentParts.push({
+          type: "image_url",
+          image_url: { url: dream.image_url }
+        });
+        userContentParts.push({
+          type: "text",
+          text: `[Image for: ${dream.dream_date} - ${dream.title}]`
+        });
+      }
+    }
+
+    let completion;
+    try {
+      // Try with vision model if we have images
+      if (dreamsWithImages.length > 0) {
+        completion = await openai.chat.completions.create({
+          model: "gpt-4.1-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection."
+            },
+            {
+              role: "user",
+              content: userContentParts
+            }
+          ],
+          temperature: 0.7
+        });
+      } else {
+        // Text-only if no images
+        const textPrompt = [
+          `You are helping someone explore patterns across several dreams.`,
+          ``,
+          `Here are their dreams between ${from} and ${to}:`,
+          ...dreams.map(
+            (d) =>
+              `- [${d.dream_date}] ${d.title}: ${
+                d.description?.slice(0, 400) ?? "(no description)"
+              }`
+          ),
+          ``,
+          `Please:`,
+          `1) Summarise recurring themes, settings, and emotional tones.`,
+          `2) Point out 3–7 motifs that appear more than once.`,
+          `3) Offer a short paragraph on how these might connect to waking life (without making diagnoses).`,
+          `4) Finish with 2 or 3 reflection prompts they can journal on.`,
+          ``,
+          `IMPORTANT: Return your answer as a short HTML fragment, no <html> or <body> tags.`,
+          `Use simple, clean structure:`,
+          `- A <h3> "Themes" section with paragraphs.`,
+          `- A <h3> "Motifs" section with a <ul><li> list of motifs.`,
+          `- A <h3> "Reflection prompts" section with <ul><li> questions.`,
+          `You may use <strong> and <em> for gentle emphasis, but avoid overly decorative markup.`,
+          `Keep it under ~500 words, warm in tone, and easy to read.`
+        ].join("\n");
+
+        completion = await openai.chat.completions.create({
+          model: "gpt-4.1-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection."
+            },
+            { role: "user", content: textPrompt }
+          ],
+          temperature: 0.7
+        });
+      }
+    } catch (visionError) {
+      // Fallback to text-only if vision model fails
+      const textPrompt = [
+        `You are helping someone explore patterns across several dreams.`,
+        ``,
+        `Here are their dreams between ${from} and ${to}:`,
+        ...dreams.map(
+          (d) =>
+            `- [${d.dream_date}] ${d.title}: ${
+              d.description?.slice(0, 400) ?? "(no description)"
+            }`
+        ),
+        ``,
+        `Please:`,
+        `1) Summarise recurring themes, settings, and emotional tones.`,
+        `2) Point out 3–7 motifs that appear more than once.`,
+        `3) Offer a short paragraph on how these might connect to waking life (without making diagnoses).`,
+        `4) Finish with 2 or 3 reflection prompts they can journal on.`,
+        ``,
+        `IMPORTANT: Return your answer as a short HTML fragment, no <html> or <body> tags.`,
+        `Use simple, clean structure:`,
+        `- A <h3> "Themes" section with paragraphs.`,
+        `- A <h3> "Motifs" section with a <ul><li> list of motifs.`,
+        `- A <h3> "Reflection prompts" section with <ul><li> questions.`,
+        `You may use <strong> and <em> for gentle emphasis, but avoid overly decorative markup.`,
+        `Keep it under ~500 words, warm in tone, and easy to read.`
+      ].join("\n");
+
+      completion = await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You speak like a thoughtful dream guide, not a therapist. You emphasise curiosity and self-reflection."
+          },
+          { role: "user", content: textPrompt }
+        ],
+        temperature: 0.7
+      });
+    }
 
     const content = completion.choices[0]?.message?.content;
     const summaryText =
