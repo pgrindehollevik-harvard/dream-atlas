@@ -221,12 +221,17 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       });
       const json = await res.json();
       if (!res.ok) {
-        setAggregateError(json.error || "Could not generate themes.");
+        console.error("Aggregate API error:", json);
+        // Show the actual error message if available
+        const errorMsg = json.details || json.error || "Could not generate themes.";
+        setAggregateError(errorMsg);
       } else {
         setAggregateSummary(json.summary as string);
       }
-    } catch {
-      setAggregateError("Something went wrong. Please try again.");
+    } catch (err) {
+      console.error("Aggregate fetch error:", err);
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setAggregateError(errorMsg);
     } finally {
       setAggregateLoading(false);
     }

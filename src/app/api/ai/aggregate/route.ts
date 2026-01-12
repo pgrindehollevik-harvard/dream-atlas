@@ -102,17 +102,28 @@ export async function POST(req: NextRequest) {
 
     // Add images for dreams that have them
     // Convert Midjourney CDN URLs to Supabase storage URLs first
+    // Note: Server-side image fetching from Midjourney CDN often fails due to blocking
+    // If conversion fails, we'll skip images and use text-only analysis
     const convertedImageUrls: Record<string, string> = {};
+    const validImages: Array<{ url: string; label: string }> = [];
     
     for (const dream of dreamsWithImages) {
       if (dream.image_url) {
-        let imageUrlToUse = dream.image_url;
+        let imageUrlToUse: string | null = null;
         const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
         
-        // If it's not a Supabase URL, convert it
-        if (!isSupabaseUrl && !convertedImageUrls[dream.image_url]) {
+        // If it's already a Supabase URL, use it directly
+        if (isSupabaseUrl) {
+          imageUrlToUse = dream.image_url;
+        }
+        // If it's already been converted, use the converted URL
+        else if (convertedImageUrls[dream.image_url]) {
+          imageUrlToUse = convertedImageUrls[dream.image_url];
+        }
+        // Try to convert Midjourney CDN URL (may fail due to server-side blocking)
+        else {
           try {
-            console.log("Converting Midjourney CDN URL for aggregate analysis:", dream.image_url);
+            console.log("Attempting to convert Midjourney CDN URL for aggregate analysis:", dream.image_url);
             const imageResponse = await fetch(dream.image_url, {
               headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -160,36 +171,45 @@ export async function POST(req: NextRequest) {
                     .eq("id", dream.id);
                 }
               } else {
-                console.error("Failed to upload converted image:", uploadError);
+                console.warn("Failed to upload converted image, skipping:", uploadError.message);
               }
             } else {
-              console.error("Failed to fetch image from CDN:", imageResponse.status);
+              console.warn("Failed to fetch image from CDN (likely blocked), skipping:", imageResponse.status);
             }
           } catch (convertError) {
-            console.error("Error converting image:", convertError);
+            console.warn("Error converting image (likely server-side blocking), skipping:", convertError instanceof Error ? convertError.message : String(convertError));
             // Skip this image - continue with others
-            continue;
           }
-        } else if (convertedImageUrls[dream.image_url]) {
-          // Use already converted URL
-          imageUrlToUse = convertedImageUrls[dream.image_url];
         }
         
-        userContentParts.push({
-          type: "image_url" as const,
-          image_url: { url: imageUrlToUse }
-        });
-        userContentParts.push({
-          type: "text" as const,
-          text: `[Image for: ${dream.dream_date} - ${dream.title}]`
-        });
+        // Only add images that we successfully have a URL for
+        if (imageUrlToUse) {
+          validImages.push({
+            url: imageUrlToUse,
+            label: `[Image for: ${dream.dream_date} - ${dream.title}]`
+          });
+        }
       }
+    }
+    
+    // Add valid images to content
+    for (const img of validImages) {
+      userContentParts.push({
+        type: "image_url" as const,
+        image_url: { url: img.url }
+      });
+      userContentParts.push({
+        type: "text" as const,
+        text: img.label
+      });
     }
 
     let completion;
     try {
-      // Try with vision model if we have images
-      if (dreamsWithImages.length > 0) {
+      console.log(`Generating aggregate summary: ${dreams.length} dreams, ${validImages.length} images`);
+      // Try with vision model if we have successfully converted images
+      if (validImages.length > 0) {
+        console.log("Using vision model with images");
         completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
@@ -207,6 +227,7 @@ export async function POST(req: NextRequest) {
         });
       } else {
         // Text-only if no images
+        console.log("Using text-only model (no images)");
         const textPrompt = [
           `You are helping someone explore patterns across several dreams.`,
           ``,
@@ -247,6 +268,7 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (visionError) {
+      console.error("Vision model error, falling back to text-only:", visionError);
       // Fallback to text-only if vision model fails
       const textPrompt = [
         `You are helping someone explore patterns across several dreams.`,
@@ -315,6 +337,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.log("Saving aggregate summary to database...");
     const { data: inserted, error: insertError } = await supabase
       .from("user_aggregate_summaries")
       .insert({
@@ -327,22 +350,29 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertError) {
+      console.error("Database insert error:", insertError);
       return NextResponse.json(
-        { error: insertError.message },
+        { error: insertError.message, code: insertError.code },
         { status: 500 }
       );
     }
+    
+    console.log("Aggregate summary generated successfully");
 
     return NextResponse.json({
       summary: inserted?.summary_text,
       createdAt: inserted?.created_at
     });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Unexpected error", details: String(error) },
-      { status: 500 }
-    );
-  }
+    } catch (error) {
+      console.error("Aggregate route error:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error("Error stack:", errorStack);
+      return NextResponse.json(
+        { error: "Unexpected error", details: errorMessage },
+        { status: 500 }
+      );
+    }
 }
 
 
