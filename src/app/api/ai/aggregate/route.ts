@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
         `4) Finish with 2 or 3 reflection prompts they can journal on.`,
         ``,
         `IMPORTANT: Return your answer as a short HTML fragment, no <html> or <body> tags.`,
+        `DO NOT wrap your response in markdown code blocks (no \`\`\`html or \`\`\`). Return ONLY the raw HTML.`,
         `Use simple, clean structure:`,
         `- A <h3> "Themes" section with paragraphs.`,
         `- A <h3> "Motifs" section with a <ul><li> list of motifs.`,
@@ -193,6 +194,7 @@ export async function POST(req: NextRequest) {
         `4) Finish with 2 or 3 reflection prompts they can journal on.`,
         ``,
         `IMPORTANT: Return your answer as a short HTML fragment, no <html> or <body> tags.`,
+        `DO NOT wrap your response in markdown code blocks (no \`\`\`html or \`\`\`). Return ONLY the raw HTML.`,
         `Use simple, clean structure:`,
         `- A <h3> "Themes" section with paragraphs.`,
         `- A <h3> "Motifs" section with a <ul><li> list of motifs.`,
@@ -216,7 +218,7 @@ export async function POST(req: NextRequest) {
     }
 
     const content = completion.choices[0]?.message?.content;
-    const summaryText =
+    let summaryText =
       typeof content === "string"
         ? content
         : Array.isArray(content)
@@ -224,6 +226,15 @@ export async function POST(req: NextRequest) {
             .map((c) => ("text" in c ? c.text : ""))
             .join("\n")
         : "";
+
+    // Strip markdown code fences if present
+    if (summaryText) {
+      summaryText = summaryText
+        .replace(/^```html\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+    }
 
     if (!summaryText) {
       return NextResponse.json(

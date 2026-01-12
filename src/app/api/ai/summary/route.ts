@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       `3) Suggest 1 gentle reflection question the dreamer could ask themselves.`,
       ``,
       `IMPORTANT: Return your answer as a small HTML fragment (no <html> or <body> tags).`,
+      `DO NOT wrap your response in markdown code blocks (no \`\`\`html or \`\`\`). Return ONLY the raw HTML.`,
       `Structure it with:`,
       `- A <h3> title like "What this dream is circling around".`,
       `- A couple of <p> paragraphs for the narrative summary.`,
@@ -227,7 +228,7 @@ export async function POST(req: NextRequest) {
       content = textOnlyCompletion.choices[0]?.message?.content;
     }
 
-    const summaryText =
+    let summaryText =
       typeof content === "string"
         ? content
         : Array.isArray(content)
@@ -235,6 +236,15 @@ export async function POST(req: NextRequest) {
             .map((c) => ("text" in c ? c.text : ""))
             .join("\n")
         : "";
+
+    // Strip markdown code fences if present
+    if (summaryText) {
+      summaryText = summaryText
+        .replace(/^```html\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+    }
 
     if (!summaryText) {
       return NextResponse.json(
