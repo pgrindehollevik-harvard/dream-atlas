@@ -723,52 +723,53 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                             </button>
                           </div>
                         )}
-                          <div className="space-y-4">
-                            {chatMessages.map((m, idx) => (
-                              <div
-                                key={`${m.role}-${idx}`}
-                                className={`flex gap-3 ${
-                                  m.role === "user" ? "justify-end" : "justify-start"
-                                }`}
-                              >
-                                {m.role === "assistant" && (
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dream-500/20 text-[10px] text-dream-300">
-                                    AI
-                                  </div>
-                                )}
-                                <div
-                                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
-                                    m.role === "user"
-                                      ? "bg-dream-500/20 text-dream-100"
-                                      : "bg-slate-800/60 text-slate-100"
-                                  }`}
-                                >
-                                  <div className="whitespace-pre-wrap">{m.content}</div>
-                                </div>
-                                {m.role === "user" && (
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] text-slate-300">
-                                    You
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            {chatSending && (
-                              <div className="flex gap-3 justify-start">
+                        <div className="space-y-4">
+                          {chatMessages.map((m, idx) => (
+                            <div
+                              key={`${m.role}-${idx}`}
+                              className={`flex gap-3 ${
+                                m.role === "user" ? "justify-end" : "justify-start"
+                              }`}
+                            >
+                              {m.role === "assistant" && (
                                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dream-500/20 text-[10px] text-dream-300">
                                   AI
                                 </div>
-                                <div className="rounded-2xl bg-slate-800/60 px-4 py-2.5">
-                                  <div className="flex gap-1">
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></div>
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></div>
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400"></div>
-                                  </div>
+                              )}
+                              <div
+                                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                                  m.role === "user"
+                                    ? "bg-dream-500/20 text-dream-100"
+                                    : "bg-slate-800/60 text-slate-100"
+                                }`}
+                              >
+                                <div className="whitespace-pre-wrap">{m.content}</div>
+                              </div>
+                              {m.role === "user" && (
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] text-slate-300">
+                                  You
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {chatSending && (
+                            <div className="flex gap-3 justify-start">
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dream-500/20 text-[10px] text-dream-300">
+                                AI
+                              </div>
+                              <div className="rounded-2xl bg-slate-800/60 px-4 py-2.5">
+                                <div className="flex gap-1">
+                                  <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></div>
+                                  <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></div>
+                                  <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400"></div>
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
 
                       {/* Chat Input */}
                       <div className="border-t border-slate-800 p-4">
