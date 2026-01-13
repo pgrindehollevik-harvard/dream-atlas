@@ -458,6 +458,12 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-3 self-start md:self-auto">
+          <Link
+            href="/app/profile"
+            className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:border-slate-600 hover:text-slate-100"
+          >
+            Your profile
+          </Link>
           <button
             type="button"
             onClick={() => setPatternsOpen(true)}
