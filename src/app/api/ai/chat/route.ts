@@ -121,7 +121,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const dreamsWithImages = dreams?.filter((d) => d.image_url) ?? [];
+    // Filter dreams with images, but only use Supabase URLs (skip Midjourney CDN URLs)
+    // Midjourney CDN blocks server-side requests, so we can't use them in chat
+    const dreamsWithImages = dreams?.filter((d) => {
+      if (!d.image_url) return false;
+      // Only use Supabase URLs - skip Midjourney CDN URLs
+      return d.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
+    }) ?? [];
 
     const systemPrompt =
       "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context.";
@@ -145,7 +151,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n");
 
-    // Build content with images if available
+    // Build content with images if available (only Supabase URLs)
     let userContextContent: string | (
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string } }
@@ -162,7 +168,7 @@ export async function POST(req: NextRequest) {
         }
       ];
 
-      // Add images for dreams that have them
+      // Add images for dreams that have Supabase URLs
       for (const dream of dreamsWithImages) {
         if (dream.image_url) {
           contextParts.push({
