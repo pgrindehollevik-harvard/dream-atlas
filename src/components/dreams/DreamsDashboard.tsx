@@ -203,6 +203,25 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     }
   }
 
+  async function loadPreviousChat() {
+    try {
+      const { from, to } = getRangeDates(rangePreset);
+      const res = await fetch("/api/ai/chat/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to })
+      });
+      const json = await res.json();
+      if (res.ok && json.sessionId && json.messages && json.messages.length > 0) {
+        setChatSessionId(json.sessionId);
+        setChatMessages(json.messages);
+      }
+    } catch (err) {
+      console.error("Error loading previous chat:", err);
+      // Silently fail - it's okay if we can't load previous chats
+    }
+  }
+
   async function handleGenerateAggregate() {
     setAggregateError(null);
     setAggregateLoading(true);
@@ -227,6 +246,8 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         setAggregateError(errorMsg);
       } else {
         setAggregateSummary(json.summary as string);
+        // Load previous chat after themes are generated
+        await loadPreviousChat();
       }
     } catch (err) {
       console.error("Aggregate fetch error:", err);
@@ -674,15 +695,34 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                         <div className="border-t border-slate-800"></div>
                       )}
                       
-                      {/* Chat Messages */}
-                      <div ref={chatMessagesRef} className="max-h-[400px] overflow-y-auto p-4">
-                        {chatMessages.length === 0 ? (
-                          <div className="flex items-center justify-center py-4">
-                            <p className="text-xs text-slate-400">
-                              Ask a question about these themes to start a conversation
+                  {/* Chat Messages */}
+                  <div ref={chatMessagesRef} className="max-h-[400px] overflow-y-auto p-4">
+                    {chatMessages.length === 0 ? (
+                      <div className="flex items-center justify-center py-4">
+                        <p className="text-xs text-slate-400">
+                          Ask a question about these themes to start a conversation
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {chatMessages.length > 0 && chatSessionId && (
+                          <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
+                            <p className="text-[10px] text-slate-500">
+                              Continuing previous conversation
                             </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setChatMessages([]);
+                                setChatSessionId(null);
+                                setChatInput("");
+                              }}
+                              className="text-[10px] text-slate-400 hover:text-slate-200"
+                            >
+                              Start new
+                            </button>
                           </div>
-                        ) : (
+                        )}
                           <div className="space-y-4">
                             {chatMessages.map((m, idx) => (
                               <div
