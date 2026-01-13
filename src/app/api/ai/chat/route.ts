@@ -129,8 +129,9 @@ export async function POST(req: NextRequest) {
       return d.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
     }) ?? [];
 
-    const systemPrompt =
-      "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context.";
+    const systemPrompt = dreamsWithImages.length > 0
+      ? "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. IMPORTANT: When images are provided with dreams, you can see and analyze them. Describe specific visual details you observe in the images (colors, objects, composition, mood, settings, people, animals, etc.) and connect them to the dream themes. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context."
+      : "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context.";
 
     const contextLines =
       dreams?.map(
@@ -169,15 +170,20 @@ export async function POST(req: NextRequest) {
       ];
 
       // Add images for dreams that have Supabase URLs
+      // Label them clearly so the AI knows which image belongs to which dream
       for (const dream of dreamsWithImages) {
         if (dream.image_url) {
+          contextParts.push({
+            type: "text" as const,
+            text: `[Image for the dream "${dream.title}" from ${dream.dream_date}:]`
+          });
           contextParts.push({
             type: "image_url" as const,
             image_url: { url: dream.image_url }
           });
           contextParts.push({
             type: "text" as const,
-            text: `[Image for: ${dream.dream_date} - ${dream.title}]`
+            text: `[End of image for "${dream.title}"]`
           });
         }
       }
