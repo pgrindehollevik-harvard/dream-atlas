@@ -92,6 +92,11 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Enter the atlas"}
         </button>
         <p className="pt-2 text-center text-xs text-slate-400">
+          <Link href="/forgot-password" className="text-dream-300 hover:text-dream-200">
+            Forgot your password?
+          </Link>
+        </p>
+        <p className="pt-1 text-center text-xs text-slate-400">
           No account yet?{" "}
           <Link href="/signup" className="text-dream-300 hover:text-dream-200">
             Start a new atlas

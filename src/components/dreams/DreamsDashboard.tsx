@@ -471,14 +471,18 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           >
             Explore dream patterns
           </button>
-          <form action="/logout" method="post">
-            <button
-              type="submit"
-              className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:border-rose-400 hover:text-rose-200"
-            >
-              Log out
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await fetch("/logout", { method: "POST" });
+              if (res.ok) {
+                window.location.href = "/";
+              }
+            }}
+            className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:border-rose-400 hover:text-rose-200"
+          >
+            Log out
+          </button>
         </div>
       </header>
 

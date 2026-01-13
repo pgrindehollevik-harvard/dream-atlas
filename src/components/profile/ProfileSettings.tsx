@@ -204,17 +204,23 @@ export function ProfileSettings({ user, profile }: Props) {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              id="isPublic"
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-700 bg-night-900 text-dream-500 focus:ring-dream-500"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
-            <label htmlFor="isPublic" className="text-xs font-medium text-slate-300">
-              Make my profile public
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                id="isPublic"
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-700 bg-night-900 text-dream-500 focus:ring-dream-500"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              <label htmlFor="isPublic" className="text-xs font-medium text-slate-300">
+                Make my profile public
+              </label>
+            </div>
+            <p className="text-xs text-slate-500 pl-6">
+              When public, your profile page at /u/{username || "username"} will be accessible. 
+              Only dreams marked as "public" will appear on your public profile.
+            </p>
           </div>
 
           {profileError && (
