@@ -267,6 +267,15 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     if (!message) return;
     setChatSending(true);
     setChatError(null);
+    
+    // Add user message immediately for better UX
+    const userMessageId = `user-${Date.now()}`;
+    setChatMessages((prev) => [
+      ...prev,
+      { id: userMessageId, role: "user", content: message }
+    ]);
+    setChatInput("");
+    
     try {
       const { from, to } = getRangeDates(rangePreset);
       const res = await fetch("/api/ai/chat", {
@@ -284,20 +293,23 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         console.error("Chat API error:", json);
         const errorMsg = json.details || json.error || "Could not send message. Please try again.";
         setChatError(errorMsg);
+        // Remove the user message if there was an error
+        setChatMessages((prev) => prev.filter((m) => m.id !== userMessageId));
       } else {
         setChatSessionId(json.sessionId as string);
         const assistantMessage = json.assistantMessage as string;
+        // Add assistant response
         setChatMessages((prev) => [
           ...prev,
-          { role: "user", content: message },
           { role: "assistant", content: assistantMessage }
         ]);
-        setChatInput("");
       }
     } catch (err) {
       console.error("Chat fetch error:", err);
       const errorMsg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       setChatError(errorMsg);
+      // Remove the user message if there was an error
+      setChatMessages((prev) => prev.filter((m) => m.id !== userMessageId));
     } finally {
       setChatSending(false);
     }
