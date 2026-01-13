@@ -52,13 +52,23 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
   const [patternsOpen, setPatternsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  // Store separate chat state for each time period
+  const [chatSessions, setChatSessions] = useState<Record<RangePreset, { sessionId: string | null; messages: ChatMessage[] }>>({
+    today: { sessionId: null, messages: [] },
+    "7d": { sessionId: null, messages: [] },
+    "30d": { sessionId: null, messages: [] },
+    all: { sessionId: null, messages: [] }
+  });
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  // Get current chat state for the selected period
+  const currentChat = chatSessions[rangePreset];
+  const chatSessionId = currentChat.sessionId;
+  const chatMessages = currentChat.messages;
 
   // Auto-resize textarea
   useEffect(() => {
@@ -79,6 +89,14 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
   }, [chatMessages, chatSending]);
+
+  // Load chat when switching time periods (if themes are already generated)
+  useEffect(() => {
+    if (aggregateSummary && patternsOpen) {
+      void loadPreviousChat();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangePreset]);
 
   function getRangeDates(preset: RangePreset) {
     const today = new Date();
@@ -213,8 +231,23 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
       });
       const json = await res.json();
       if (res.ok && json.sessionId && json.messages && json.messages.length > 0) {
-        setChatSessionId(json.sessionId);
-        setChatMessages(json.messages);
+        // Update chat state for the current period
+        setChatSessions((prev) => ({
+          ...prev,
+          [rangePreset]: {
+            sessionId: json.sessionId,
+            messages: json.messages
+          }
+        }));
+      } else {
+        // No previous chat found - ensure state is cleared for this period
+        setChatSessions((prev) => ({
+          ...prev,
+          [rangePreset]: {
+            sessionId: null,
+            messages: []
+          }
+        }));
       }
     } catch (err) {
       console.error("Error loading previous chat:", err);
@@ -225,10 +258,7 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
   async function handleGenerateAggregate() {
     setAggregateError(null);
     setAggregateLoading(true);
-    // Reset chat when generating new themes
-    setChatMessages([]);
-    setChatSessionId(null);
-    setChatInput("");
+    // Don't reset chat - we want to keep separate chats per period
     setChatError(null);
     try {
       const { from, to } = getRangeDates(rangePreset);
@@ -246,7 +276,7 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         setAggregateError(errorMsg);
       } else {
         setAggregateSummary(json.summary as string);
-        // Load previous chat after themes are generated
+        // Load previous chat for this period after themes are generated
         await loadPreviousChat();
       }
     } catch (err) {
@@ -291,10 +321,16 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     
     // Add user message immediately for better UX
     const userMessageId = `user-${Date.now()}`;
-    setChatMessages((prev) => [
+    setChatSessions((prev) => ({
       ...prev,
-      { id: userMessageId, role: "user", content: message }
-    ]);
+      [rangePreset]: {
+        ...prev[rangePreset],
+        messages: [
+          ...prev[rangePreset].messages,
+          { id: userMessageId, role: "user", content: message }
+        ]
+      }
+    }));
     setChatInput("");
     
     try {
@@ -315,22 +351,39 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         const errorMsg = json.details || json.error || "Could not send message. Please try again.";
         setChatError(errorMsg);
         // Remove the user message if there was an error
-        setChatMessages((prev) => prev.filter((m) => m.id !== userMessageId));
-      } else {
-        setChatSessionId(json.sessionId as string);
-        const assistantMessage = json.assistantMessage as string;
-        // Add assistant response
-        setChatMessages((prev) => [
+        setChatSessions((prev) => ({
           ...prev,
-          { role: "assistant", content: assistantMessage }
-        ]);
+          [rangePreset]: {
+            ...prev[rangePreset],
+            messages: prev[rangePreset].messages.filter((m) => m.id !== userMessageId)
+          }
+        }));
+      } else {
+        const assistantMessage = json.assistantMessage as string;
+        // Update chat state for the current period
+        setChatSessions((prev) => ({
+          ...prev,
+          [rangePreset]: {
+            sessionId: json.sessionId as string,
+            messages: [
+              ...prev[rangePreset].messages,
+              { role: "assistant", content: assistantMessage }
+            ]
+          }
+        }));
       }
     } catch (err) {
       console.error("Chat fetch error:", err);
       const errorMsg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       setChatError(errorMsg);
       // Remove the user message if there was an error
-      setChatMessages((prev) => prev.filter((m) => m.id !== userMessageId));
+      setChatSessions((prev) => ({
+        ...prev,
+        [rangePreset]: {
+          ...prev[rangePreset],
+          messages: prev[rangePreset].messages.filter((m) => m.id !== userMessageId)
+        }
+      }));
     } finally {
       setChatSending(false);
     }
@@ -713,8 +766,14 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                             <button
                               type="button"
                               onClick={() => {
-                                setChatMessages([]);
-                                setChatSessionId(null);
+                                // Reset chat for the current period only
+                                setChatSessions((prev) => ({
+                                  ...prev,
+                                  [rangePreset]: {
+                                    sessionId: null,
+                                    messages: []
+                                  }
+                                }));
                                 setChatInput("");
                               }}
                               className="text-[10px] text-slate-400 hover:text-slate-200"
