@@ -46,9 +46,18 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rangePreset, setRangePreset] = useState<RangePreset>("30d");
-  const [aggregateSummary, setAggregateSummary] = useState<string | null>(null);
+  // Store aggregate summaries per time period
+  const [aggregateSummaries, setAggregateSummaries] = useState<Record<RangePreset, string | null>>({
+    today: null,
+    "7d": null,
+    "30d": null,
+    all: null
+  });
   const [aggregateLoading, setAggregateLoading] = useState(false);
   const [aggregateError, setAggregateError] = useState<string | null>(null);
+  
+  // Get current summary for the selected period
+  const aggregateSummary = aggregateSummaries[rangePreset];
   const [patternsOpen, setPatternsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -90,9 +99,10 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     }
   }, [chatMessages, chatSending]);
 
-  // Load chat when switching time periods (if themes are already generated)
+  // Load chat and summary when switching time periods (if modal is open)
   useEffect(() => {
-    if (aggregateSummary && patternsOpen) {
+    if (patternsOpen) {
+      void loadPreviousSummary();
       void loadPreviousChat();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +265,34 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     }
   }
 
+  async function loadPreviousSummary() {
+    try {
+      const { from, to } = getRangeDates(rangePreset);
+      const res = await fetch("/api/ai/aggregate/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to })
+      });
+      const json = await res.json();
+      if (res.ok && json.summary) {
+        // Update summary state for the current period
+        setAggregateSummaries((prev) => ({
+          ...prev,
+          [rangePreset]: json.summary
+        }));
+      } else {
+        // No previous summary found - clear for this period
+        setAggregateSummaries((prev) => ({
+          ...prev,
+          [rangePreset]: null
+        }));
+      }
+    } catch (err) {
+      console.error("Error loading previous summary:", err);
+      // Silently fail - it's okay if we can't load previous summaries
+    }
+  }
+
   async function handleGenerateAggregate() {
     setAggregateError(null);
     setAggregateLoading(true);
@@ -275,7 +313,11 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
         const errorMsg = json.details || json.error || "Could not generate themes.";
         setAggregateError(errorMsg);
       } else {
-        setAggregateSummary(json.summary as string);
+        // Store summary for the current period
+        setAggregateSummaries((prev) => ({
+          ...prev,
+          [rangePreset]: json.summary as string
+        }));
         // Load previous chat for this period after themes are generated
         await loadPreviousChat();
       }
