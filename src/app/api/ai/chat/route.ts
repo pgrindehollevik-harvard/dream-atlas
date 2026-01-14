@@ -123,23 +123,64 @@ export async function POST(req: NextRequest) {
 
     // Filter dreams with images only (videos not supported in chat by OpenAI vision API)
     // Only use Supabase URLs (skip Midjourney CDN URLs)
+    // Check actual file content, not just extension (videos may have .jpg extension)
     // Midjourney CDN blocks server-side requests, so we can't use them in chat
-    const dreamsWithImages = dreams?.filter((d) => {
-      if (!d.image_url) return false;
-      // Only use Supabase URLs - skip Midjourney CDN URLs
-      if (!d.image_url.includes("supabase.co/storage/v1/object/public/dream-images")) {
-        return false;
+    const dreamsWithImages: typeof dreams = [];
+    
+    if (dreams) {
+      for (const dream of dreams) {
+        if (!dream.image_url) continue;
+        // Only use Supabase URLs - skip Midjourney CDN URLs
+        if (!dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images")) {
+          continue;
+        }
+        
+        // Check if it's actually a video by checking file content
+        // Videos may have .jpg extension but contain video data
+        try {
+          const response = await fetch(dream.image_url, { 
+            method: "GET",
+            headers: { "Range": "bytes=0-12" } // Only fetch first 12 bytes to check file signature
+          });
+          
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            
+            // Check for video file signatures
+            // MP4: starts with ftyp (bytes 4-7) and contains isom, mp41, etc.
+            // WebM: starts with 1A 45 DF A3
+            // AVI: starts with RIFF...AVI 
+            const isMP4 = bytes.length >= 12 && 
+              String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) === "ftyp" &&
+              (String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]).includes("isom") ||
+               String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]).includes("mp41"));
+            const isWebM = bytes.length >= 4 && bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3;
+            const isAVI = bytes.length >= 12 &&
+              String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) === "RIFF" &&
+              String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) === "AVI ";
+            
+            if (isMP4 || isWebM || isAVI) {
+              console.log(`Skipping video file in chat (detected by file signature): ${dream.image_url}`);
+              continue;
+            }
+            
+            // Also check content-type header as fallback
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.startsWith("video/")) {
+              console.log(`Skipping video file in chat (content-type: ${contentType}): ${dream.image_url}`);
+              continue;
+            }
+          }
+          
+          dreamsWithImages.push(dream);
+        } catch (checkError) {
+          // If we can't check, skip it to be safe
+          console.warn(`Could not verify file type for ${dream.image_url}, skipping:`, checkError);
+          continue;
+        }
       }
-      // Filter out video files - OpenAI vision API only supports images
-      const urlLower = d.image_url.toLowerCase();
-      const videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v'];
-      const isVideo = videoExtensions.some(ext => urlLower.includes(ext));
-      if (isVideo) {
-        console.log(`Skipping video file in chat (not supported): ${d.image_url}`);
-        return false;
-      }
-      return true;
-    }) ?? [];
+    }
 
     const systemPrompt = dreamsWithImages.length > 0
       ? "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. IMPORTANT: When images are provided with dreams, you can see and analyze them. Describe specific visual details you observe in the images (colors, objects, composition, mood, settings, people, animals, etc.) and connect them to the dream themes. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context."
