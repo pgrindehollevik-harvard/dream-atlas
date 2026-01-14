@@ -653,12 +653,12 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
             >
               <Link href={`/d/${dream.slug}`} className="block">
                 {dream.image_url && (
-                  <div className="w-full overflow-hidden bg-slate-900">
+                  <div className="h-52 w-full overflow-hidden bg-slate-900">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={dream.image_url}
                       alt={dream.title}
-                      className="h-auto w-full object-contain transition duration-500 group-hover:scale-105"
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     />
                   </div>
                 )}

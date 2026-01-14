@@ -16,31 +16,39 @@ function ResetPasswordForm() {
   const [hasTokens, setHasTokens] = useState(false);
 
   useEffect(() => {
-    // Supabase sends tokens in the URL hash, not query params
-    // Check both hash and query params for compatibility
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    const hashParams = new URLSearchParams(hash.substring(1)); // Remove the #
+    const supabase = createSupabaseBrowserClient();
     
-    const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
-    const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
-    const type = hashParams.get("type") || searchParams.get("type");
-    
-    if (accessToken && refreshToken && type === "recovery") {
-      setHasTokens(true);
-      // Exchange the tokens for a session
-      const supabase = createSupabaseBrowserClient();
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      }).then(({ error: sessionError }) => {
-        if (sessionError) {
-          setError("Invalid or expired reset link. Please request a new password reset.");
-          setHasTokens(false);
-        }
-      });
-    } else {
-      setError("Invalid or expired reset link. Please request a new password reset.");
-    }
+    // First check if we already have a session (from code exchange)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setHasTokens(true);
+        return;
+      }
+      
+      // If no session, check for tokens in URL hash or query params
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      const hashParams = new URLSearchParams(hash.substring(1)); // Remove the #
+      
+      const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
+      const type = hashParams.get("type") || searchParams.get("type");
+      
+      if (accessToken && refreshToken && type === "recovery") {
+        setHasTokens(true);
+        // Exchange the tokens for a session
+        supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        }).then(({ error: sessionError }) => {
+          if (sessionError) {
+            setError("Invalid or expired reset link. Please request a new password reset.");
+            setHasTokens(false);
+          }
+        });
+      } else {
+        setError("Invalid or expired reset link. Please request a new password reset.");
+      }
+    });
   }, [searchParams]);
 
   async function handleSubmit(e: FormEvent) {
