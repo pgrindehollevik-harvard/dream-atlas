@@ -68,12 +68,12 @@ export default async function UserPublicPage({ params }: any) {
               className="group overflow-hidden rounded-2xl border border-slate-800 bg-night-800/80 shadow-md transition hover:border-dream-400/60 hover:shadow-glow"
             >
               {dream.image_url && (
-                <div className="h-40 w-full overflow-hidden bg-slate-900">
+                <div className="w-full overflow-hidden bg-slate-900">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={dream.image_url}
                     alt={dream.title}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    className="h-auto w-full object-contain transition duration-500 group-hover:scale-105"
                   />
                 </div>
               )}

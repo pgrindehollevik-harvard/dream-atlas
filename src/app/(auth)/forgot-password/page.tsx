@@ -17,10 +17,11 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
+      // Use the full URL with path for password reset redirect
       const redirectTo =
         typeof window !== "undefined"
           ? `${window.location.origin}/reset-password`
-          : undefined;
+          : "https://mydreamatlas.com/reset-password";
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
         redirectTo ? { redirectTo } : undefined

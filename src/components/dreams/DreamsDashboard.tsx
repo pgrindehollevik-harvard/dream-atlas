@@ -458,12 +458,6 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-3 self-start md:self-auto">
-          <Link
-            href="/app/profile"
-            className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:border-slate-600 hover:text-slate-100"
-          >
-            Your profile
-          </Link>
           <button
             type="button"
             onClick={() => setPatternsOpen(true)}
@@ -471,6 +465,12 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           >
             Explore dream patterns
           </button>
+          <Link
+            href="/app/profile"
+            className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:border-slate-600 hover:text-slate-100"
+          >
+            Your profile
+          </Link>
           <button
             type="button"
             onClick={async () => {
@@ -653,12 +653,12 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
             >
               <Link href={`/d/${dream.slug}`} className="block">
                 {dream.image_url && (
-                  <div className="h-40 w-full overflow-hidden bg-slate-900">
+                  <div className="w-full overflow-hidden bg-slate-900">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={dream.image_url}
                       alt={dream.title}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      className="h-auto w-full object-contain transition duration-500 group-hover:scale-105"
                     />
                   </div>
                 )}

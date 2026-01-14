@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { PasswordResetHandler } from "@/components/auth/PasswordResetHandler";
 
 export default function LandingPage() {
   return (
-    <main className="flex flex-1 flex-col justify-between gap-10">
+    <>
+      <PasswordResetHandler />
+      <main className="flex flex-1 flex-col justify-between gap-10">
       <section className="mt-10 grid gap-10 md:grid-cols-[1.1fr,0.9fr] md:items-center">
         <div>
           <p className="mb-4 text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -80,6 +83,7 @@ export default function LandingPage() {
         </div>
       </section>
     </main>
+    </>
   );
 }
 
