@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { PasswordResetHandler } from "@/components/auth/PasswordResetHandler";
+
+export const dynamic = "force-dynamic";
 
 export default function LandingPage() {
   return (
     <>
-      <PasswordResetHandler />
+      <Suspense fallback={null}>
+        <PasswordResetHandler />
+      </Suspense>
       <main className="flex flex-1 flex-col justify-between gap-10">
       <section className="mt-10 grid gap-10 md:grid-cols-[1.1fr,0.9fr] md:items-center">
         <div>

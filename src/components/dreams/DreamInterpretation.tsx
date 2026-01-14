@@ -226,7 +226,7 @@ export function DreamContent({
             <select
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as DreamVisibility)}
-              className="w-full rounded-lg border border-slate-700 bg-night-900 px-3 py-1.5 text-xs text-slate-100 outline-none ring-dream-500/40 focus:border-dream-400 focus:ring-2"
+              className="w-full appearance-none rounded-lg border border-slate-700 bg-night-900 px-3 py-1.5 text-xs text-slate-100 outline-none ring-dream-500/40 focus:border-dream-400 focus:ring-2"
             >
               <option value="private">Private</option>
               <option value="public">Public</option>
