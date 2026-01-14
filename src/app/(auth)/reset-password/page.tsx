@@ -13,13 +13,32 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [hasTokens, setHasTokens] = useState(false);
 
   useEffect(() => {
-    // Check if we have the necessary tokens in the URL
-    const accessToken = searchParams.get("access_token");
-    const refreshToken = searchParams.get("refresh_token");
+    // Supabase sends tokens in the URL hash, not query params
+    // Check both hash and query params for compatibility
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const hashParams = new URLSearchParams(hash.substring(1)); // Remove the #
     
-    if (!accessToken || !refreshToken) {
+    const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
+    const type = hashParams.get("type") || searchParams.get("type");
+    
+    if (accessToken && refreshToken && type === "recovery") {
+      setHasTokens(true);
+      // Exchange the tokens for a session
+      const supabase = createSupabaseBrowserClient();
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      }).then(({ error: sessionError }) => {
+        if (sessionError) {
+          setError("Invalid or expired reset link. Please request a new password reset.");
+          setHasTokens(false);
+        }
+      });
+    } else {
       setError("Invalid or expired reset link. Please request a new password reset.");
     }
   }, [searchParams]);
@@ -115,7 +134,7 @@ function ResetPasswordForm() {
         )}
         <button
           type="submit"
-          disabled={loading || !password || !confirmPassword}
+          disabled={loading || !password || !confirmPassword || !hasTokens}
           className="flex w-full items-center justify-center rounded-full bg-dream-500 px-4 py-2.5 text-sm font-medium text-night-900 shadow-glow transition hover:bg-dream-400 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Updating password..." : "Update password"}

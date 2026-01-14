@@ -218,7 +218,7 @@ export function ProfileSettings({ user, profile }: Props) {
               </label>
             </div>
             <p className="text-xs text-slate-500 pl-6">
-              When public, your profile page at /u/{username || "username"} will be accessible. 
+              When public, your profile will be accessible at <code className="text-dream-300">/u/{username || "username"}</code>. 
               Only dreams marked as &quot;public&quot; will appear on your public profile.
             </p>
           </div>
