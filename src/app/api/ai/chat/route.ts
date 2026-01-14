@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Filter dreams with images, but only use Supabase URLs (skip Midjourney CDN URLs)
+    // Filter dreams with images/videos, but only use Supabase URLs (skip Midjourney CDN URLs)
+    // OpenAI gpt-4o-mini supports both images and videos via the same image_url format
     // Midjourney CDN blocks server-side requests, so we can't use them in chat
     const dreamsWithImages = dreams?.filter((d) => {
       if (!d.image_url) return false;
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
     }) ?? [];
 
     const systemPrompt = dreamsWithImages.length > 0
-      ? "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. IMPORTANT: When images are provided with dreams, you can see and analyze them. Describe specific visual details you observe in the images (colors, objects, composition, mood, settings, people, animals, etc.) and connect them to the dream themes. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context."
+      ? "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. IMPORTANT: When images or videos are provided with dreams, you can see and analyze them. Describe specific visual details you observe in the media (colors, objects, composition, mood, settings, people, animals, movement, etc.) and connect them to the dream themes. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context."
       : "You are a dream-pattern guide. You see a list of someone's dreams over a period of time and chat with them about themes, emotions and symbols. You never diagnose or give medical advice. You emphasise curiosity and gentle self-reflection. Keep your replies concise: at most 2 short paragraphs or 4–6 sentences total (around 120 words), focusing on the heart of the question rather than repeating the full context.";
 
     const contextLines =
@@ -169,13 +170,14 @@ export async function POST(req: NextRequest) {
         }
       ];
 
-      // Add images for dreams that have Supabase URLs
-      // Label them clearly so the AI knows which image belongs to which dream
+      // Add images/videos for dreams that have Supabase URLs
+      // OpenAI gpt-4o-mini supports both images and videos via the same image_url format
+      // Label them clearly so the AI knows which media belongs to which dream
       for (const dream of dreamsWithImages) {
         if (dream.image_url) {
           contextParts.push({
             type: "text" as const,
-            text: `[Image for the dream "${dream.title}" from ${dream.dream_date}:]`
+            text: `[Media for the dream "${dream.title}" from ${dream.dream_date}:]`
           });
           contextParts.push({
             type: "image_url" as const,
@@ -183,7 +185,7 @@ export async function POST(req: NextRequest) {
           });
           contextParts.push({
             type: "text" as const,
-            text: `[End of image for "${dream.title}"]`
+            text: `[End of media for "${dream.title}"]`
           });
         }
       }
