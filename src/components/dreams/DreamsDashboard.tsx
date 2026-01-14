@@ -474,10 +474,9 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           <button
             type="button"
             onClick={async () => {
-              const res = await fetch("/logout", { method: "POST" });
-              if (res.ok) {
-                window.location.href = "/";
-              }
+              const supabase = createSupabaseBrowserClient();
+              await supabase.auth.signOut();
+              window.location.href = "/";
             }}
             className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:border-rose-400 hover:text-rose-200"
           >
