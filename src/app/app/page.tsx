@@ -22,7 +22,7 @@ export default async function AppPage() {
   const { data: dreams } = await supabase
     .from("dreams")
     .select(
-      "id, slug, title, description, dream_date, visibility, image_url, created_at"
+      "id, slug, title, description, dream_date, visibility, image_url, thumbnail_url, created_at"
     )
     .eq("user_id", user.id)
     .order("dream_date", { ascending: false });
