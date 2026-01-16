@@ -83,7 +83,16 @@ type DreamJournalPDFProps = {
 };
 
 export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDFProps) {
-  const imageUrlToUse = (dream: Dream) => dream.thumbnail_url || dream.image_url;
+  // For videos, use thumbnail_url. For images, use image_url.
+  // Prioritize thumbnail_url if it exists (for videos), otherwise use image_url (for images)
+  const imageUrlToUse = (dream: Dream) => {
+    // If thumbnail_url exists, use it (this is for videos)
+    if (dream.thumbnail_url) {
+      return dream.thumbnail_url;
+    }
+    // Otherwise use image_url (for regular images)
+    return dream.image_url;
+  };
 
   return (
     <Document>

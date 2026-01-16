@@ -586,7 +586,11 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                 const res = await fetch("/api/dreams/export-pdf");
                 if (!res.ok) {
                   const error = await res.json();
-                  alert(error.error || "Failed to export PDF");
+                  const errorMsg = error.details 
+                    ? `${error.error}: ${error.details}` 
+                    : error.error || "Failed to export PDF";
+                  alert(errorMsg);
+                  console.error("PDF export error:", error);
                   return;
                 }
                 const blob = await res.blob();
@@ -599,7 +603,8 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
               } catch (err) {
-                alert("Failed to export PDF. Please try again.");
+                const errorMsg = err instanceof Error ? err.message : "Unknown error";
+                alert(`Failed to export PDF: ${errorMsg}`);
                 console.error("Export error:", err);
               }
             }}

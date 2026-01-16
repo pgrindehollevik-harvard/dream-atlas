@@ -73,8 +73,13 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("PDF export error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Full error details:", errorMessage);
     return NextResponse.json(
-      { error: "Failed to generate PDF", details: String(error) },
+      { 
+        error: "Failed to generate PDF", 
+        details: errorMessage 
+      },
       { status: 500 }
     );
   }
