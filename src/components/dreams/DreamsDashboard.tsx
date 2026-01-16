@@ -579,6 +579,34 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           >
             Explore dream patterns
           </button>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/dreams/export-pdf");
+                if (!res.ok) {
+                  const error = await res.json();
+                  alert(error.error || "Failed to export PDF");
+                  return;
+                }
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `dream-journal-${new Date().toISOString().split("T")[0]}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+              } catch (err) {
+                alert("Failed to export PDF. Please try again.");
+                console.error("Export error:", err);
+              }
+            }}
+            className="rounded-full border border-slate-700 bg-night-900/50 px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-800/50 hover:text-slate-100 active:scale-95 transition"
+          >
+            Export PDF
+          </button>
           <Link
             href="/app/profile"
             className="rounded-full border border-slate-700 bg-night-900/50 px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-800/50 hover:text-slate-100 active:scale-95 transition"
