@@ -115,10 +115,7 @@ export async function GET(req: NextRequest) {
     const userName = profile?.display_name || user.email?.split("@")[0] || "User";
 
     // Create PDF document directly in the route
-    const pdfDocument = React.createElement(
-      Document,
-      {},
-      dreams.map((dream, index) => {
+    const pageElements = dreams.map((dream, index) => {
         // Use thumbnail_url for videos, image_url for images
         const imageUrl = dream.thumbnail_url || dream.image_url;
         
@@ -168,21 +165,31 @@ export async function GET(req: NextRequest) {
         }
         
         pageChildren.push(
-          React.createElement(View, { key: "dream", style: styles.dreamContainer }, dreamChildren),
+          React.createElement(View, { key: "dream", style: styles.dreamContainer }, dreamChildren)
+        );
+        
+        // Page number will be handled by react-pdf automatically via fixed positioning
+        // We'll add it as a simple text element
+        pageChildren.push(
           React.createElement(Text, {
             key: "pagenum",
             style: styles.pageNumber,
-            render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) => `${pageNumber} / ${totalPages}`,
             fixed: true
-          })
+          }, "")
         );
 
-        return React.createElement(
-          Page,
-          { key: dream.id, size: "A4", style: styles.page },
-          ...pageChildren
+        // React.createElement accepts children as separate arguments or as an array
+        return React.createElement.apply(
+          null,
+          [Page, { key: dream.id, size: "A4", style: styles.page }, ...pageChildren] as any
         );
-      })
+      }
+    );
+    
+    const pdfDocument = React.createElement(
+      Document,
+      {},
+      pageElements
     );
 
     // Render to buffer
