@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { data: dream, error: dreamError } = await supabase
       .from("dreams")
       .select(
-        "id, user_id, title, description, dream_date, visibility, image_url"
+        "id, user_id, title, description, dream_date, visibility, image_url, thumbnail_url"
       )
       .eq("id", dreamId)
       .single();
@@ -92,17 +92,20 @@ export async function POST(req: NextRequest) {
     let imageError: string | null = null;
     let content: OpenAI.Chat.Completions.ChatCompletionMessage["content"] | undefined = undefined;
 
-    if (dream.image_url) {
+    // Use thumbnail_url for videos, image_url for images
+    const mediaUrl = dream.thumbnail_url || dream.image_url;
+
+    if (mediaUrl) {
       // Check if it's a Supabase storage URL (should work) or external CDN (might fail)
-      const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
-      let imageUrlToUse = dream.image_url;
+      const isSupabaseUrl = mediaUrl.includes("supabase.co/storage/v1/object/public/dream-images");
+      let imageUrlToUse = mediaUrl;
       
       // If it's not a Supabase URL, convert it first
       if (!isSupabaseUrl) {
-        console.log("Converting Midjourney CDN URL to Supabase storage:", dream.image_url);
+        console.log("Converting Midjourney CDN URL to Supabase storage:", mediaUrl);
         try {
           // Download and convert the image
-          const imageResponse = await fetch(dream.image_url, {
+          const imageResponse = await fetch(mediaUrl, {
             headers: {
               "User-Agent": "Mozilla/5.0 (compatible; DreamAtlas/1.0)"
             }

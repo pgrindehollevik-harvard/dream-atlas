@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const { data: dreams, error: dreamsError } = await supabase
       .from("dreams")
-      .select("id, title, description, dream_date, visibility, image_url")
+      .select("id, title, description, dream_date, visibility, image_url, thumbnail_url")
       .eq("user_id", user.id)
       .gte("dream_date", from)
       .lte("dream_date", to)
@@ -59,8 +59,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Build content with images for vision model
-    const dreamsWithImages = dreams.filter((d) => d.image_url);
-    const dreamsWithoutImages = dreams.filter((d) => !d.image_url);
+    // Use thumbnail_url for videos, image_url for images
+    const dreamsWithImages = dreams.filter((d) => d.thumbnail_url || d.image_url);
+    const dreamsWithoutImages = dreams.filter((d) => !d.thumbnail_url && !d.image_url);
 
     const userContentParts: (
       | { type: "text"; text: string }
@@ -108,23 +109,26 @@ export async function POST(req: NextRequest) {
     const validImages: Array<{ url: string; label: string }> = [];
     
     for (const dream of dreamsWithImages) {
-      if (dream.image_url) {
+      // Use thumbnail_url for videos, image_url for images
+      const mediaUrl = dream.thumbnail_url || dream.image_url;
+      
+      if (mediaUrl) {
         let imageUrlToUse: string | null = null;
-        const isSupabaseUrl = dream.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
+        const isSupabaseUrl = mediaUrl.includes("supabase.co/storage/v1/object/public/dream-images");
         
         // If it's already a Supabase URL, use it directly
         if (isSupabaseUrl) {
-          imageUrlToUse = dream.image_url;
+          imageUrlToUse = mediaUrl;
         }
         // If it's already been converted, use the converted URL
-        else if (convertedImageUrls[dream.image_url]) {
-          imageUrlToUse = convertedImageUrls[dream.image_url];
+        else if (convertedImageUrls[mediaUrl]) {
+          imageUrlToUse = convertedImageUrls[mediaUrl];
         }
         // Try to convert Midjourney CDN URL (may fail due to server-side blocking)
         else {
           try {
-            console.log("Attempting to convert Midjourney CDN URL for aggregate analysis:", dream.image_url);
-            const imageResponse = await fetch(dream.image_url, {
+            console.log("Attempting to convert Midjourney CDN URL for aggregate analysis:", mediaUrl);
+            const imageResponse = await fetch(mediaUrl, {
               headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
@@ -160,7 +164,7 @@ export async function POST(req: NextRequest) {
                   .getPublicUrl(filePath);
                 
                 imageUrlToUse = publicUrl;
-                convertedImageUrls[dream.image_url] = publicUrl;
+                convertedImageUrls[mediaUrl] = publicUrl;
                 console.log("Successfully converted to Supabase URL:", imageUrlToUse);
                 
                 // Update the dream's image_url in the database
