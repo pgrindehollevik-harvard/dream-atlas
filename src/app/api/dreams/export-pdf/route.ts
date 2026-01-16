@@ -167,21 +167,12 @@ export async function GET(req: NextRequest) {
         pageChildren.push(
           React.createElement(View, { key: "dream", style: styles.dreamContainer }, dreamChildren)
         );
-        
-        // Page number will be handled by react-pdf automatically via fixed positioning
-        // We'll add it as a simple text element
-        pageChildren.push(
-          React.createElement(Text, {
-            key: "pagenum",
-            style: styles.pageNumber,
-            fixed: true
-          }, "")
-        );
 
-        // React.createElement accepts children as separate arguments or as an array
-        return React.createElement.apply(
-          null,
-          [Page, { key: dream.id, size: "A4", style: styles.page }, ...pageChildren] as any
+        // Create Page element - pass children as array (React.createElement accepts array as third arg)
+        return React.createElement(
+          Page,
+          { key: dream.id, size: "A4", style: styles.page },
+          pageChildren
         );
       }
     );
