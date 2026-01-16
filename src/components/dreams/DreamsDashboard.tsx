@@ -583,7 +583,6 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
             type="button"
             onClick={async () => {
               try {
-                const res = await fetch("/api/dreams/export-pdf");
                 if (!res.ok) {
                   const error = await res.json();
                   const errorMsg = error.details 
