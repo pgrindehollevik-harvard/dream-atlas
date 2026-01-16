@@ -68,7 +68,7 @@ export default async function UserPublicPage({ params }: any) {
               className="group overflow-hidden rounded-2xl border border-slate-800 bg-night-800/80 shadow-md transition hover:border-dream-400/60 hover:shadow-glow"
             >
               {dream.image_url && (
-                <div className="h-52 w-full overflow-hidden bg-slate-900">
+                <div className="h-64 w-full overflow-hidden bg-slate-900">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={dream.image_url}
