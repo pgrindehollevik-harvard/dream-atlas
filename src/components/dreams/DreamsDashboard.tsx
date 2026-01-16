@@ -636,12 +636,14 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
                     <label className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
                       Date
                     </label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-night-900 px-2 py-1.5 text-xs text-slate-100 outline-none ring-dream-500/40 focus:border-dream-400 focus:ring-2"
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-slate-700 bg-night-900 px-2 py-1.5 pr-7 text-xs text-slate-100 outline-none ring-dream-500/40 focus:border-dream-400 focus:ring-2"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
