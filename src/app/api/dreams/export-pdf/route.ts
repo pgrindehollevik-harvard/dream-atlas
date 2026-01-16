@@ -56,8 +56,18 @@ export async function GET(req: NextRequest) {
     // Create PDF document
     const pdfDocument = createDreamJournalPDF(dreams, userName, totalDays);
 
-    // Render to buffer
-    const buffer = await renderToBuffer(pdfDocument);
+    // Render to buffer - ensure it's a valid React element
+    let buffer: Buffer;
+    try {
+      buffer = await renderToBuffer(pdfDocument);
+    } catch (renderError) {
+      console.error("PDF render error:", renderError);
+      // Try to get more details about the error
+      const errorDetails = renderError instanceof Error 
+        ? renderError.message 
+        : String(renderError);
+      throw new Error(`PDF rendering failed: ${errorDetails}`);
+    }
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
     return new NextResponse(new Uint8Array(buffer), {

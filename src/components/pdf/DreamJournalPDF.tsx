@@ -110,30 +110,31 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
           <View style={styles.dreamContainer}>
             <View style={styles.dreamHeader}>
               <Text style={styles.dreamDate}>
-                {new Date(dream.dream_date).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric"
-                })}
+                {(() => {
+                  try {
+                    const date = new Date(dream.dream_date);
+                    return date.toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric"
+                    });
+                  } catch (err) {
+                    return dream.dream_date;
+                  }
+                })()}
               </Text>
               <Text style={styles.dreamTitle}>{dream.title}</Text>
             </View>
             
             {(() => {
               const imgUrl = imageUrlToUse(dream);
-              if (!imgUrl) return null;
-              try {
-                return (
-                  <Image
-                    src={imgUrl}
-                    style={styles.dreamImage}
-                  />
-                );
-              } catch (err) {
-                // If image fails to load, skip it
-                console.warn(`Failed to load image for dream ${dream.id}:`, err);
-                return null;
-              }
+              if (!imgUrl || typeof imgUrl !== "string") return null;
+              return (
+                <Image
+                  src={imgUrl}
+                  style={styles.dreamImage}
+                />
+              );
             })()}
             
             {dream.description && (

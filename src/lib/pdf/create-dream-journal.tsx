@@ -1,5 +1,4 @@
 import React from "react";
-import type { ReactElement } from "react";
 import { DreamJournalPDF } from "@/components/pdf/DreamJournalPDF";
 
 type Dream = {
@@ -15,11 +14,12 @@ export function createDreamJournalPDF(
   dreams: Dream[],
   userName: string,
   totalDays: number
-): ReactElement {
+) {
+  // Use React.createElement to properly create the element
   return React.createElement(DreamJournalPDF, {
     dreams,
     userName,
     totalDays
-  }) as ReactElement;
+  });
 }
 
