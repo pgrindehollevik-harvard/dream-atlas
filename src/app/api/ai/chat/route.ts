@@ -130,106 +130,17 @@ export async function POST(req: NextRequest) {
       return d.image_url.includes("supabase.co/storage/v1/object/public/dream-images");
     }) ?? [];
     
-    // Process videos: extract first frame and convert to image
-    // Use existing thumbnail_url if available, otherwise extract and save
+    // Process media: use thumbnail_url for videos, image_url for images
+    // Videos should have thumbnail_url set when uploaded (client-side extraction)
     const processedMedia: Array<{ dream: typeof dreams[0]; imageUrl: string }> = [];
     
     for (const dream of dreamsWithMedia) {
       if (!dream.image_url) continue;
       
-      // If we already have a thumbnail_url, use it (for videos that were already processed)
-      if (dream.thumbnail_url) {
-        processedMedia.push({ dream, imageUrl: dream.thumbnail_url });
-        continue;
-      }
-      
-      // Check if it's a video by checking file extension first (faster than file signature)
-      const urlLower = dream.image_url.toLowerCase();
-      const isVideoByExtension = urlLower.includes(".mp4") || urlLower.includes(".webm") || urlLower.includes(".avi") || urlLower.includes(".mov");
-      
-      // If not a video by extension, check file signature
-      let isVideo = isVideoByExtension;
-      
-      if (!isVideoByExtension) {
-        try {
-          const response = await fetch(dream.image_url, { 
-            method: "GET",
-            headers: { "Range": "bytes=0-12" }
-          });
-          
-          if (response.ok) {
-            const buffer = await response.arrayBuffer();
-            const bytes = new Uint8Array(buffer);
-            
-            // Check for video file signatures
-            const isMP4 = bytes.length >= 12 && 
-              String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) === "ftyp" &&
-              (String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]).includes("isom") ||
-               String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]).includes("mp41"));
-            const isWebM = bytes.length >= 4 && bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3;
-            const isAVI = bytes.length >= 12 &&
-              String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) === "RIFF" &&
-              String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) === "AVI ";
-            
-            isVideo = isMP4 || isWebM || isAVI;
-          }
-        } catch (checkError) {
-          // If we can't check, assume it's an image
-          isVideo = false;
-        }
-      }
-      
-      if (isVideo) {
-        // Extract first frame from video and save to database
-        console.log(`Attempting to extract first frame from video: ${dream.image_url}`);
-        try {
-          const { extractFirstFrame } = await import("@/lib/video/extract-frame");
-          const frameBuffer = await extractFirstFrame(dream.image_url);
-          
-          // Upload frame as image to Supabase
-          const fileName = `frame-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-          const filePath = `${user.id}/${fileName}`;
-          // Convert Buffer to Uint8Array for File constructor
-          const uint8Array = new Uint8Array(frameBuffer);
-          const file = new File([uint8Array], fileName, { type: "image/jpeg" });
-          
-          const { error: uploadError } = await supabase.storage
-            .from("dream-images")
-            .upload(filePath, file, {
-              cacheControl: "31536000",
-              upsert: false
-            });
-          
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from("dream-images")
-              .getPublicUrl(filePath);
-            
-            // Save thumbnail_url to database for future use
-            if (dream.id) {
-              await supabase
-                .from("dreams")
-                .update({ thumbnail_url: publicUrl })
-                .eq("id", dream.id);
-              console.log(`Saved thumbnail_url to database for dream ${dream.id}: ${publicUrl}`);
-            }
-            
-            processedMedia.push({ dream, imageUrl: publicUrl });
-            console.log(`Successfully extracted and saved first frame from video: ${dream.image_url} -> ${publicUrl}`);
-          } else {
-            console.error(`Failed to upload extracted frame:`, uploadError.message);
-            // Skip this video - chat will work without it
-          }
-        } catch (extractError) {
-          // ffmpeg might not be available in serverless (e.g., Vercel)
-          console.error(`Failed to extract frame from video:`, extractError instanceof Error ? extractError.message : String(extractError));
-          console.error(`Full error:`, extractError);
-          // Skip this video - chat will work without it
-        }
-      } else {
-        // It's an image, use it directly
-        processedMedia.push({ dream, imageUrl: dream.image_url });
-      }
+      // If we have a thumbnail_url, use it (for videos)
+      // Otherwise use image_url (for images)
+      const imageUrlToUse = dream.thumbnail_url || dream.image_url;
+      processedMedia.push({ dream, imageUrl: imageUrlToUse });
     }
     
     const dreamsWithImages = processedMedia.map(p => p.dream);

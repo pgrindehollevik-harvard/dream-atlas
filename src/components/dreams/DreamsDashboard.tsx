@@ -133,61 +133,141 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
     try {
       const supabase = createSupabaseBrowserClient();
       
-      // If imageUrl is a Midjourney CDN link, convert it to Supabase storage first
+      // If imageUrl is a Midjourney CDN link or external URL, convert it to Supabase storage first
       // Do this client-side since Midjourney CDN blocks server requests
+      // Also handle videos: extract first frame and save both video and thumbnail
       let finalImageUrl = imageUrl || null;
+      let thumbnailUrl: string | null = null;
+      
       if (imageUrl && imageUrl.trim() && !imageUrl.includes("supabase.co/storage/v1/object/public/dream-images")) {
         try {
-          console.log("Converting Midjourney CDN URL to Supabase storage (client-side):", imageUrl.trim());
+          const urlLower = imageUrl.toLowerCase();
+          const isVideo = urlLower.includes(".mp4") || urlLower.includes(".webm") || urlLower.includes(".avi") || urlLower.includes(".mov");
           
-          // Fetch the image in the browser (can access CDN)
-          const imageResponse = await fetch(imageUrl.trim(), {
-            mode: "cors",
-            credentials: "omit"
-          });
-          
-          if (!imageResponse.ok) {
-            throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
-          }
-          
-          const imageBlob = await imageResponse.blob();
-          const contentType = imageBlob.type || "image/jpeg";
-          
-          // Determine file extension
-          let ext = "jpg";
-          if (contentType.includes("png")) ext = "png";
-          else if (contentType.includes("webp")) ext = "webp";
-          else if (contentType.includes("gif")) ext = "gif";
-          
-          // Create a File object
-          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const filePath = `${user.id}/${fileName}`;
-          const file = new File([imageBlob], fileName, { type: contentType });
-          
-          // Upload to Supabase storage
-          const { error: uploadError } = await supabase.storage
-            .from("dream-images")
-            .upload(filePath, file, {
-              cacheControl: "31536000",
-              upsert: false
+          if (isVideo) {
+            console.log("Detected video, extracting first frame (client-side):", imageUrl.trim());
+            
+            // Extract first frame from video
+            const { extractFirstFrameClient } = await import("@/lib/video/extract-frame-client");
+            const frameBlob = await extractFirstFrameClient(imageUrl.trim());
+            
+            // Upload the video itself
+            const videoResponse = await fetch(imageUrl.trim(), {
+              mode: "cors",
+              credentials: "omit"
             });
-          
-          if (uploadError) {
-            throw new Error(`Upload failed: ${uploadError.message}`);
+            
+            if (!videoResponse.ok) {
+              throw new Error(`Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`);
+            }
+            
+            const videoBlob = await videoResponse.blob();
+            const videoContentType = videoBlob.type || "video/mp4";
+            
+            // Determine video extension
+            let videoExt = "mp4";
+            if (videoContentType.includes("webm")) videoExt = "webm";
+            else if (videoContentType.includes("avi")) videoExt = "avi";
+            else if (videoContentType.includes("quicktime")) videoExt = "mov";
+            
+            const videoFileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${videoExt}`;
+            const videoFilePath = `${user.id}/${videoFileName}`;
+            const videoFile = new File([videoBlob], videoFileName, { type: videoContentType });
+            
+            // Upload video
+            const { error: videoUploadError } = await supabase.storage
+              .from("dream-images")
+              .upload(videoFilePath, videoFile, {
+                cacheControl: "31536000",
+                upsert: false
+              });
+            
+            if (videoUploadError) {
+              throw new Error(`Video upload failed: ${videoUploadError.message}`);
+            }
+            
+            const { data: { publicUrl: videoPublicUrl } } = supabase.storage
+              .from("dream-images")
+              .getPublicUrl(videoFilePath);
+            
+            finalImageUrl = videoPublicUrl;
+            
+            // Upload the extracted frame as thumbnail
+            const frameFileName = `frame-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+            const frameFilePath = `${user.id}/${frameFileName}`;
+            const frameFile = new File([frameBlob], frameFileName, { type: "image/jpeg" });
+            
+            const { error: frameUploadError } = await supabase.storage
+              .from("dream-images")
+              .upload(frameFilePath, frameFile, {
+                cacheControl: "31536000",
+                upsert: false
+              });
+            
+            if (frameUploadError) {
+              console.warn("Failed to upload thumbnail, continuing without it:", frameUploadError.message);
+            } else {
+              const { data: { publicUrl: framePublicUrl } } = supabase.storage
+                .from("dream-images")
+                .getPublicUrl(frameFilePath);
+              thumbnailUrl = framePublicUrl;
+              console.log("Successfully extracted and uploaded video frame:", thumbnailUrl);
+            }
+            
+            console.log("Successfully uploaded video to Supabase storage:", finalImageUrl);
+          } else {
+            // It's an image
+            console.log("Converting image URL to Supabase storage (client-side):", imageUrl.trim());
+            
+            // Fetch the image in the browser (can access CDN)
+            const imageResponse = await fetch(imageUrl.trim(), {
+              mode: "cors",
+              credentials: "omit"
+            });
+            
+            if (!imageResponse.ok) {
+              throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+            }
+            
+            const imageBlob = await imageResponse.blob();
+            const contentType = imageBlob.type || "image/jpeg";
+            
+            // Determine file extension
+            let ext = "jpg";
+            if (contentType.includes("png")) ext = "png";
+            else if (contentType.includes("webp")) ext = "webp";
+            else if (contentType.includes("gif")) ext = "gif";
+            
+            // Create a File object
+            const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+            const filePath = `${user.id}/${fileName}`;
+            const file = new File([imageBlob], fileName, { type: contentType });
+            
+            // Upload to Supabase storage
+            const { error: uploadError } = await supabase.storage
+              .from("dream-images")
+              .upload(filePath, file, {
+                cacheControl: "31536000",
+                upsert: false
+              });
+            
+            if (uploadError) {
+              throw new Error(`Upload failed: ${uploadError.message}`);
+            }
+            
+            // Get the public URL
+            const {
+              data: { publicUrl }
+            } = supabase.storage.from("dream-images").getPublicUrl(filePath);
+            
+            finalImageUrl = publicUrl;
+            console.log("Successfully converted image to Supabase storage:", finalImageUrl);
           }
-          
-          // Get the public URL
-          const {
-            data: { publicUrl }
-          } = supabase.storage.from("dream-images").getPublicUrl(filePath);
-          
-          finalImageUrl = publicUrl;
-          console.log("Successfully converted image to Supabase storage:", finalImageUrl);
         } catch (importError) {
-          console.error("Image import failed:", importError);
-          setError(`Image conversion failed: ${importError instanceof Error ? importError.message : String(importError)}. Please try downloading the image and uploading it directly, or use a different image URL.`);
+          console.error("Media import failed:", importError);
+          setError(`Media conversion failed: ${importError instanceof Error ? importError.message : String(importError)}. Please try downloading the file and uploading it directly, or use a different URL.`);
           setSubmitting(false);
-          return; // Don't save the dream if image conversion fails
+          return; // Don't save the dream if conversion fails
         }
       }
 
@@ -208,10 +288,11 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           dream_date: date,
           visibility,
           image_url: finalImageUrl,
+          thumbnail_url: thumbnailUrl,
           slug
         })
         .select(
-          "id, slug, title, description, dream_date, visibility, image_url, created_at"
+          "id, slug, title, description, dream_date, visibility, image_url, thumbnail_url, created_at"
         )
         .single();
 
