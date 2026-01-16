@@ -94,9 +94,17 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
     return dream.image_url;
   };
 
+  // Ensure dreams is an array
+  const validDreams = Array.isArray(dreams) ? dreams : [];
+
   return (
     <Document>
-      {dreams.map((dream, index) => (
+      {validDreams.map((dream, index) => {
+        // Ensure dream has required fields
+        if (!dream || !dream.id || !dream.title) {
+          return null;
+        }
+        return (
         <Page key={dream.id} size="A4" style={styles.page}>
           {index === 0 && (
             <>
@@ -148,7 +156,8 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
             fixed
           />
         </Page>
-      ))}
+        );
+      })}
     </Document>
   );
 }
