@@ -100,9 +100,9 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
         <Page key={dream.id} size="A4" style={styles.page}>
           {index === 0 && (
             <>
-              <Text style={styles.title}>{userName}&apos;s Dream Journal</Text>
+              <Text style={styles.title}>{String(userName || "User")}&apos;s Dream Journal</Text>
               <Text style={styles.subtitle}>
-                {dreams.length} Dreams in {totalDays} Days
+                {String(dreams.length)} Dreams in {String(totalDays)} Days
               </Text>
             </>
           )}
@@ -123,7 +123,7 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
                   }
                 })()}
               </Text>
-              <Text style={styles.dreamTitle}>{dream.title}</Text>
+              <Text style={styles.dreamTitle}>{String(dream.title || "")}</Text>
             </View>
             
             {(() => {
@@ -138,7 +138,7 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
             })()}
             
             {dream.description && (
-              <Text style={styles.dreamDescription}>{dream.description}</Text>
+              <Text style={styles.dreamDescription}>{String(dream.description)}</Text>
             )}
           </View>
           

@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     // Create PDF document
     const pdfDocument = createDreamJournalPDF(dreams, userName, totalDays);
 
-    // Render to buffer - ensure it's a valid React element
+    // Render to buffer
     let buffer: Buffer;
     try {
       buffer = await renderToBuffer(pdfDocument);

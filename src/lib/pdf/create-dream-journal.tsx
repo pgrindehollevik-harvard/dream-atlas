@@ -1,4 +1,5 @@
 import React from "react";
+import type { ReactElement } from "react";
 import { DreamJournalPDF } from "@/components/pdf/DreamJournalPDF";
 
 type Dream = {
@@ -14,12 +15,16 @@ export function createDreamJournalPDF(
   dreams: Dream[],
   userName: string,
   totalDays: number
-) {
+): ReactElement {
   // Use React.createElement to properly create the element
-  return React.createElement(DreamJournalPDF, {
+  // The component returns a Document, which is what renderToBuffer expects
+  const element = React.createElement(DreamJournalPDF, {
     dreams,
     userName,
     totalDays
   });
+  
+  // Ensure it's typed correctly for react-pdf
+  return element as ReactElement;
 }
 
