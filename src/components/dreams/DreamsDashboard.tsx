@@ -579,38 +579,6 @@ export function DreamsDashboard({ user, profile, initialDreams }: Props) {
           >
             Explore dream patterns
           </button>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                if (!res.ok) {
-                  const error = await res.json();
-                  const errorMsg = error.details 
-                    ? `${error.error}: ${error.details}` 
-                    : error.error || "Failed to export PDF";
-                  alert(errorMsg);
-                  console.error("PDF export error:", error);
-                  return;
-                }
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `dream-journal-${new Date().toISOString().split("T")[0]}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-              } catch (err) {
-                const errorMsg = err instanceof Error ? err.message : "Unknown error";
-                alert(`Failed to export PDF: ${errorMsg}`);
-                console.error("Export error:", err);
-              }
-            }}
-            className="rounded-full border border-slate-700 bg-night-900/50 px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-800/50 hover:text-slate-100 active:scale-95 transition"
-          >
-            Export PDF
-          </button>
           <Link
             href="/app/profile"
             className="rounded-full border border-slate-700 bg-night-900/50 px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-800/50 hover:text-slate-100 active:scale-95 transition"
