@@ -85,17 +85,32 @@ type DreamJournalPDFProps = {
 export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDFProps) {
   // For videos, use thumbnail_url. For images, use image_url.
   // Prioritize thumbnail_url if it exists (for videos), otherwise use image_url (for images)
-  const imageUrlToUse = (dream: Dream) => {
-    // If thumbnail_url exists, use it (this is for videos)
+  const getImageUrl = (dream: Dream): string | null => {
     if (dream.thumbnail_url) {
       return dream.thumbnail_url;
     }
-    // Otherwise use image_url (for regular images)
     return dream.image_url;
+  };
+
+  // Format date helper
+  const formatDate = (dateStr: string): string => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+    } catch (err) {
+      return dateStr;
+    }
   };
 
   // Ensure dreams is an array
   const validDreams = Array.isArray(dreams) ? dreams : [];
+  const userNameStr = String(userName || "User");
+  const dreamsCount = String(dreams.length);
+  const daysCount = String(totalDays);
 
   return (
     <Document>
@@ -104,58 +119,38 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
         if (!dream || !dream.id || !dream.title) {
           return null;
         }
+        
+        const imgUrl = getImageUrl(dream);
+        const formattedDate = formatDate(dream.dream_date);
+        const title = String(dream.title || "");
+        const description = dream.description ? String(dream.description) : null;
+        
         return (
-        <Page key={dream.id} size="A4" style={styles.page}>
-          {index === 0 && (
-            <>
-              <Text style={styles.title}>{String(userName || "User")}&apos;s Dream Journal</Text>
-              <Text style={styles.subtitle}>
-                {String(dreams.length)} Dreams in {String(totalDays)} Days
-              </Text>
-            </>
-          )}
-          
-          <View style={styles.dreamContainer}>
-            <View style={styles.dreamHeader}>
-              <Text style={styles.dreamDate}>
-                {(() => {
-                  try {
-                    const date = new Date(dream.dream_date);
-                    return date.toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric"
-                    });
-                  } catch (err) {
-                    return dream.dream_date;
-                  }
-                })()}
-              </Text>
-              <Text style={styles.dreamTitle}>{String(dream.title || "")}</Text>
-            </View>
-            
-            {(() => {
-              const imgUrl = imageUrlToUse(dream);
-              if (!imgUrl || typeof imgUrl !== "string") return null;
-              return (
-                <Image
-                  src={imgUrl}
-                  style={styles.dreamImage}
-                />
-              );
-            })()}
-            
-            {dream.description && (
-              <Text style={styles.dreamDescription}>{String(dream.description)}</Text>
+          <Page key={dream.id} size="A4" style={styles.page}>
+            {index === 0 && (
+              <>
+                <Text style={styles.title}>{userNameStr}&apos;s Dream Journal</Text>
+                <Text style={styles.subtitle}>
+                  {dreamsCount} Dreams in {daysCount} Days
+                </Text>
+              </>
             )}
-          </View>
-          
-          <Text
-            style={styles.pageNumber}
-            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
-            fixed
-          />
-        </Page>
+            
+            <View style={styles.dreamContainer}>
+              <View style={styles.dreamHeader}>
+                <Text style={styles.dreamDate}>{formattedDate}</Text>
+                <Text style={styles.dreamTitle}>{title}</Text>
+              </View>
+              
+              {imgUrl && typeof imgUrl === "string" && (
+                <Image src={imgUrl} style={styles.dreamImage} />
+              )}
+              
+              {description && (
+                <Text style={styles.dreamDescription}>{description}</Text>
+              )}
+            </View>
+          </Page>
         );
       })}
     </Document>
