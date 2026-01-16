@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { DreamJournalPDF } from "@/components/pdf/DreamJournalPDF";
+import { createDreamJournalPDF } from "@/lib/pdf/create-dream-journal";
 
 // Mark this route as dynamic to allow React rendering
 export const dynamic = "force-dynamic";
@@ -54,13 +53,10 @@ export async function GET(req: NextRequest) {
 
     const userName = profile?.display_name || user.email?.split("@")[0] || "User";
 
-    // Render PDF - the component returns a Document, so we can render it directly
-    const pdfDocument = React.createElement(DreamJournalPDF, {
-      dreams,
-      userName,
-      totalDays
-    }) as React.ReactElement;
+    // Create PDF document
+    const pdfDocument = createDreamJournalPDF(dreams, userName, totalDays);
 
+    // Render to buffer
     const buffer = await renderToBuffer(pdfDocument);
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse

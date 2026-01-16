@@ -121,12 +121,19 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
             
             {(() => {
               const imgUrl = imageUrlToUse(dream);
-              return imgUrl ? (
-                <Image
-                  src={imgUrl}
-                  style={styles.dreamImage}
-                />
-              ) : null;
+              if (!imgUrl) return null;
+              try {
+                return (
+                  <Image
+                    src={imgUrl}
+                    style={styles.dreamImage}
+                  />
+                );
+              } catch (err) {
+                // If image fails to load, skip it
+                console.warn(`Failed to load image for dream ${dream.id}:`, err);
+                return null;
+              }
             })()}
             
             {dream.description && (
