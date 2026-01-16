@@ -110,12 +110,15 @@ export function DreamJournalPDF({ dreams, userName, totalDays }: DreamJournalPDF
               <Text style={styles.dreamTitle}>{dream.title}</Text>
             </View>
             
-            {imageUrlToUse(dream) && (
-              <Image
-                src={imageUrlToUse(dream)}
-                style={styles.dreamImage}
-              />
-            )}
+            {(() => {
+              const imgUrl = imageUrlToUse(dream);
+              return imgUrl ? (
+                <Image
+                  src={imgUrl}
+                  style={styles.dreamImage}
+                />
+              ) : null;
+            })()}
             
             {dream.description && (
               <Text style={styles.dreamDescription}>{dream.description}</Text>
